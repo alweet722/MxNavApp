@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:mapsui="clr-namespace:Mapsui.UI.Maui;assembly=Mapsui.UI.Maui"
+             x:Class="NBNavApp.RoutePage"
+             Title="Route">
+    <Grid 
+        Padding="30,25,30,25" 
+        RowSpacing="10"
+        RowDefinitions="30,50,30,50,30,30,50,*,50" 
+        ColumnDefinitions="145,*" 
+        HorizontalOptions="Fill">
+        <Label 
+            Grid.Row="0"
+            Grid.ColumnSpan="2"
+            Text="Start" 
+            FontSize="Medium" />
+        <Entry 
+            Grid.Row="1"
+            Grid.ColumnSpan="2"
+            x:Name="StartAddrInput"
+            Placeholder="Start address or coordinates"
+            FontSize="18"
+            Completed="OnStartCompleted"/>
+        <Label 
+            Grid.Row="2"
+            Grid.ColumnSpan="2"
+            Text="Destination" 
+            FontSize="Medium" />
+        <Entry 
+            Grid.Row="3"
+            Grid.ColumnSpan="2"
+            x:Name="DestAddrInput"
+            Placeholder="Destination address or coordinates"
+            FontSize="18"
+            Completed="OnDestinationCompleted"/>
+        <Label
+            Grid.Row="4"
+            Grid.Column="0"
+            Text="Avoid highways"
+            FontSize="18" />
+        <Switch
+            Grid.Row="4"
+            Grid.Column="1"
+            x:Name="AvoidHighwaysSw" />
+        <Label
+            Grid.Row="5"
+            Grid.Column="0"
+            Text="Avoid toll roads"
+            FontSize="18" />
+        <Switch
+            Grid.Row="5"
+            Grid.Column="1"
+            x:Name="AvoidTollSw" />
+        <Button
+            Grid.Row="6"
+            Grid.ColumnSpan="2"
+            Text="Route"
+            x:Name="RouteBtn"
+            IsEnabled="False"
+            Clicked="OnRouteClicked"
+            HorizontalOptions="Fill"/>
+        <mapsui:MapControl
+            Grid.Row="7"
+            Grid.ColumnSpan="2"
+            x:Name="MapControl" />
+        <Button
+            Grid.Row="8"
+            Grid.ColumnSpan="2"
+            Text="Drive"
+            x:Name="StartRouteBtn"
+            Clicked="OnStartRouteClicked"
+            HorizontalOptions="Fill"/>
+    </Grid>
+</ContentPage>
