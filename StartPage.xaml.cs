@@ -11,6 +11,7 @@ namespace NBNavApp
 
         IPeripheral? connectedDevice;
         BleCharacteristicInfo? navChar;
+        DeviceData? selection;
 
         const string SERVICE_UUID = "6b7b3c93-1fdc-4f5b-97be-14adb4ffbf4d";
         const string NAV_UUID = "6b7b3c94-1fdc-4f5b-97be-14adb4ffbf4d";
@@ -60,15 +61,36 @@ namespace NBNavApp
             ScanBtn.IsEnabled = true;
         }
 
-        private async void OnDisconnectClicked(object sender, EventArgs e)
+        private async void OnConnectionToggleClicked(object sender, EventArgs e)
         {
-            connectedDevice?.CancelConnection();
-            connectedDevice = null;
+            if (connectedDevice != null)
+            {
+                connectedDevice?.CancelConnection();
+                connectedDevice = null;
 
-            ConnDvc.Text = "Disconnected";
-            ScanBtn.IsEnabled = true;
-            DisconnectBtn.IsEnabled = false;
-            NextPageBtn.IsVisible = false;
+                ConnDvc.Text = "Disconnected";
+                ScanBtn.IsEnabled = true;
+                ConnectionToggleBtn.IsEnabled = true;
+                ConnectionToggleBtn.Text = "Connect";
+                NextPageBtn.IsVisible = false;
+            }
+            else
+            {
+                if (selection == null)
+                {
+                    ConnectionToggleBtn.IsEnabled = false;
+                    return;
+                }
+
+                ConnectionToggleBtn.IsEnabled = false;
+                await ConnectAndCacheCharacteristic(selection.Peripheral);
+                ConnectionToggleBtn.Text = "Disconnect";
+                ConnectionToggleBtn.IsEnabled = true;
+
+                ConnDvc.Text = $"Connected to {connectedDevice?.Name}";
+                NextPageBtn.IsVisible = true;
+                Devices.SelectedItem = null;
+            }
         }
 
         private async void OnNextPageClicked(object sender, EventArgs e)
@@ -78,12 +100,8 @@ namespace NBNavApp
 
         private async void OnDeviceSelected(object sender, SelectionChangedEventArgs e)
         {
-            DeviceData? selection = (DeviceData?)e.CurrentSelection.FirstOrDefault();
-            if (selection == null)
-            { return; }
-
-            ScanBtn.IsEnabled = true;
-            await ConnectAndCacheCharacteristic(selection.Peripheral);
+            selection = (DeviceData?)e.CurrentSelection.FirstOrDefault();
+            ConnectionToggleBtn.IsEnabled = true;
         }
 
         private async Task ConnectAndCacheCharacteristic(IPeripheral peripheral)
@@ -99,29 +117,8 @@ namespace NBNavApp
 
             navChar = await connectedDevice.GetCharacteristicAsync(SERVICE_UUID, NAV_UUID, cts.Token);
 
-            byte[] payload = BuildNavPacket(1, 1, 100, 0);
+            byte[] payload = RouteNavigation.BuildNavPacket(1, 1, 100, 0);
             await connectedDevice.WriteCharacteristicAsync(navChar, payload, false, cts.Token);
-
-            FoundDevices.Clear();
-
-            ConnDvc.Text = $"Connected to {connectedDevice.Name}";
-            DisconnectBtn.IsEnabled = true;
-            NextPageBtn.IsVisible = true;
-            Devices.SelectedItem = null;
-        }
-
-        static byte[] BuildNavPacket(ushort seq, byte type, ushort distMeters, byte flags)
-        {
-            byte[] data =
-            [
-                (byte)(seq & 0xFF),
-                (byte)((seq >> 8) & 0xFF),
-                type,
-                (byte)(distMeters & 0xFF),
-                (byte)((distMeters >> 8) & 0xFF),
-                flags,
-            ];
-            return data;
         }
     }
 

@@ -7,7 +7,7 @@
     <Grid 
         Padding="30,25,30,25" 
         RowSpacing="10"
-        RowDefinitions="30,50,30,50,30,30,50,*,50" 
+        RowDefinitions="30,50,30,50,30,30,50,*,20,20,50" 
         ColumnDefinitions="145,*" 
         HorizontalOptions="Fill">
         <Label 
@@ -18,10 +18,11 @@
         <Entry 
             Grid.Row="1"
             Grid.ColumnSpan="2"
+            ClassId="StartAddrInput"
             x:Name="StartAddrInput"
             Placeholder="Start address or coordinates"
             FontSize="18"
-            Completed="OnStartCompleted"/>
+            Completed="OnEntryCompleted"/>
         <Label 
             Grid.Row="2"
             Grid.ColumnSpan="2"
@@ -30,10 +31,11 @@
         <Entry 
             Grid.Row="3"
             Grid.ColumnSpan="2"
+            ClassId="DestAddrInput"
             x:Name="DestAddrInput"
             Placeholder="Destination address or coordinates"
             FontSize="18"
-            Completed="OnDestinationCompleted"/>
+            Completed="OnEntryCompleted"/>
         <Label
             Grid.Row="4"
             Grid.Column="0"
@@ -64,12 +66,35 @@
             Grid.Row="7"
             Grid.ColumnSpan="2"
             x:Name="MapControl" />
-        <Button
+        <Label
             Grid.Row="8"
+            Grid.Column="0"
+            Text="Distance:"
+            FontSize="14"/>
+        <Label
+            Grid.Row="9"
+            Grid.Column="0"
+            Text="Time to destination:"
+            FontSize="14"/>
+        <Label
+            Grid.Row="8"
+            Grid.Column="1"
+            x:Name="DistanceToDestLabel"
+            FontSize="14"
+            HorizontalOptions="End"/>
+        <Label
+            Grid.Row="9"
+            Grid.Column="1"
+            x:Name="TimeToDestLabel"
+            FontSize="14"
+            HorizontalOptions="End"/>
+        <Button
+            Grid.Row="10"
             Grid.ColumnSpan="2"
             Text="Drive"
-            x:Name="StartRouteBtn"
-            Clicked="OnStartRouteClicked"
+            x:Name="DriveBtn"
+            IsEnabled="False"
+            Clicked="OnDriveClicked"
             HorizontalOptions="Fill"/>
     </Grid>
 </ContentPage>

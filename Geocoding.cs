@@ -4,11 +4,10 @@ namespace NBNavApp
 {
     internal class AddressGeocoder
     {
-        public record OrsGeometry(double[] coordinates);
-        public record OrsProperties(string? label);
-        public record OrsFeature(OrsGeometry geometry, OrsProperties properties);
-        public record OrsResponse(List<OrsFeature> features);
-
+        public record OrsGeocodingProperties(string? label);
+        public record OrsGeocodingGeometry(double[] coordinates);
+        public record OrsGeocodingFeature(OrsGeocodingGeometry geometry, OrsGeocodingProperties properties);
+        public record OrsGeocodingResponse(List<OrsGeocodingFeature> features);
 
         static readonly HttpClient client = new();
 
@@ -27,11 +26,11 @@ namespace NBNavApp
             res.EnsureSuccessStatusCode();
 
             string? json = await res.Content.ReadAsStringAsync(ct);
-            OrsResponse? geodata = JsonSerializer.Deserialize<OrsResponse>(json);
+            OrsGeocodingResponse? geodata = JsonSerializer.Deserialize<OrsGeocodingResponse>(json);
             if (geodata == null)
             { return null; }
 
-            OrsFeature? feature = geodata.features[0];
+            OrsGeocodingFeature? feature = geodata.features[0];
             if (feature == null)
             { return null; }
 
