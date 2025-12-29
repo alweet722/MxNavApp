@@ -1,119 +1,148 @@
-﻿#if ANDROID26_0_OR_GREATER
+﻿#if ANDROID31_0_OR_GREATER
 using Android.App;
 using Android.Content;
+using Android.Gms.Location;
 using Android.OS;
 using Android.Runtime;
+using Android.Util;
 using AndroidX.Core.App;
-using Android.Gms.Location;
 using System.Diagnostics;
 
-namespace NBNavApp
+namespace NBNavApp;
+
+[Service]
+public class LocationForegroundService : Service
 {
-    [Service]
-    public class LocationForegroundService : Service
+    const int NOTIF_ID = 1001;
+    const string CHANNEL_ID = "gps_channel";
+    const string ACTION_STOP = "STOP_LOCATION";
+
+    IFusedLocationProviderClient? fused;
+
+    PendingIntent? pendingIntent;
+    PowerManager.WakeLock? wakeLock;
+
+    private Notification BuildNotification(string text)
     {
-        const int NOTIF_ID = 1001;
-        const string CHANNEL_ID = "gps_channel";
+        var openIntent = new Intent(this, typeof(MainActivity));
+        openIntent.AddFlags(ActivityFlags.SingleTop);
 
-        IFusedLocationProviderClient? fused;
-        LocationCallback? callback;
+        var pending = PendingIntent.GetActivity(
+            this, 0, openIntent,
+            PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Mutable
+        );
 
-        private void CreateNotificationChannel()
-        {
-            if (Build.VERSION.SdkInt < BuildVersionCodes.O)
-            { return; }
-
-            var channel = new NotificationChannel(
-                CHANNEL_ID,
-                "GPS Tracking",
-                NotificationImportance.Low
-            );
-            var mgr = (NotificationManager)GetSystemService(NotificationService)!;
-            mgr.CreateNotificationChannel(channel);
-        }
-
-        private Notification BuildNotification(string text)
-        {
-            var openIntent = new Intent(this, typeof(MainActivity));
-            openIntent.AddFlags(ActivityFlags.SingleTop);
-
-            var pending = PendingIntent.GetActivity(
-                this, 0, openIntent,
-                PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Immutable
-            );
-
-            return new NotificationCompat.Builder(this, CHANNEL_ID)
-                .SetContentTitle("NB Navigation")
-                .SetContentText(text)
-                .SetSmallIcon(Resource.Drawable.pin)
-                .SetOngoing(true)
-                .SetContentIntent(pending)
-                .Build();
-        }
-
-        public override void OnCreate()
-        {
-            base.OnCreate();
-            CreateNotificationChannel();
-
-            fused = LocationServices.GetFusedLocationProviderClient(this);
-
-            callback = new NBLocationCallback(loc =>
-            {
-                System.Diagnostics.Debug.WriteLine($"GPS: {loc.Latitude},{loc.Longitude} acc={loc.Accuracy}");
-            });
-        }
-
-        public override IBinder? OnBind(Intent? intent) => null;
-
-        public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId)
-        {
-            StartForeground(NOTIF_ID, BuildNotification("GPS active"));
-
-            StartLocationUpdates();
-            return StartCommandResult.Sticky;
-        }
-
-        public override void OnDestroy()
-        {
-            StopLocationUpdates();
-            base.OnDestroy();
-        }
-
-        private void StartLocationUpdates()
-        {
-            if (fused == null || callback == null)
-            { return; }
-
-            var req = new LocationRequest.Builder(Priority.PriorityHighAccuracy, 5000)
-                .SetMinUpdateIntervalMillis(2000)
-                .SetWaitForAccurateLocation(false)
-                .Build();
-
-            fused.RequestLocationUpdates(req, callback, Looper.MainLooper);
-        }
-
-        private void StopLocationUpdates()
-        {
-            if (fused != null && callback != null)
-            { fused.RemoveLocationUpdates(callback); }
-        }
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+            .SetContentTitle("NB Navigation")
+            .SetContentText(text)
+            .SetSmallIcon(Android.Resource.Drawable.IcMenuCompass)
+            .SetOngoing(true)
+            .SetContentIntent(pending)
+            .Build();
     }
 
-
-
-    class NBLocationCallback : LocationCallback
+    public override void OnCreate()
     {
-        readonly Action<Android.Locations.Location> onLocation;
+        base.OnCreate();
+        CreateNotificationChannel();
 
-        public NBLocationCallback(Action<Android.Locations.Location> onLocation) => this.onLocation = onLocation;
+        //var powerManager = (PowerManager)GetSystemService(PowerService)!;
+        //wakeLock = powerManager.NewWakeLock(WakeLockFlags.Partial, "NBNavApp:LocationLock");
+        //wakeLock?.SetReferenceCounted(false);
 
-        public override void OnLocationResult(LocationResult result)
+        fused = LocationServices.GetFusedLocationProviderClient(this);
+    }
+
+    public override IBinder? OnBind(Intent? intent) => null;
+
+    public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId)
+    {
+        var action = intent?.Action;
+        if (action == ACTION_STOP)
         {
-            var loc = result.LastLocation;
-            if (loc != null)
-            { onLocation(loc); }
+            StopLocationUpdates();
+            StopForeground(StopForegroundFlags.Remove);
+            StopSelf();
+
+            return StartCommandResult.NotSticky;
         }
+
+        StartForeground(NOTIF_ID, BuildNotification("Navigation active"));
+        //AcquireWakeLock();
+        StartLocationUpdates();
+        return StartCommandResult.NotSticky;
+    }
+
+    public override void OnDestroy()
+    {
+        StopLocationUpdates();
+        //ReleaseWakeLock();
+        StopForeground(StopForegroundFlags.Remove);
+        StopSelf();
+        base.OnDestroy();
+    }
+
+    private void AcquireWakeLock()
+    {
+        if (wakeLock?.IsHeld == true)
+        { return; }
+        wakeLock?.Acquire();
+        Log.Debug("GPS-SVC", "WakeLock acquired");
+    }
+
+    private void ReleaseWakeLock()
+    {
+        if (wakeLock?.IsHeld != true)
+        { return; }
+        wakeLock?.Release();
+        Log.Debug("GPS-SVC", "WakeLock released");
+    }
+
+    private PendingIntent GetLocationPendingIntent()
+    {
+        var intent = new Intent(this, typeof(LocationUpdatesReceiver));
+        intent.SetAction(LocationUpdatesReceiver.ActionProcessUpdates);
+
+        var flags = PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Mutable;
+        return PendingIntent.GetBroadcast(this, 0, intent, flags)!;
+    }
+
+    private void CreateNotificationChannel()
+    {
+        var channel = new NotificationChannel(
+           CHANNEL_ID,
+           "GPS Tracking",
+           NotificationImportance.Low
+       );
+        var mgr = (NotificationManager)GetSystemService(NotificationService)!;
+        mgr.CreateNotificationChannel(channel);
+    }
+
+    private void StartLocationUpdates()
+    {
+        if (fused == null)
+        { return; }
+
+        pendingIntent ??= GetLocationPendingIntent();
+
+        var req = new LocationRequest.Builder(Priority.PriorityHighAccuracy, 5000)
+            .SetMinUpdateIntervalMillis(2000)
+            .SetWaitForAccurateLocation(false)
+            .Build();
+
+        fused.RequestLocationUpdates(req, pendingIntent);
+    }
+
+    private void StopLocationUpdates()
+    {
+        if (fused == null)
+        { return; }
+
+        if (pendingIntent != null)
+        { fused.RemoveLocationUpdates(pendingIntent); }
+
+        pendingIntent?.Cancel();
+        pendingIntent = null;
     }
 }
 #endif

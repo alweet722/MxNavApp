@@ -19,31 +19,59 @@ public partial class RoutePage : ContentPage
         Destination
     }
 
+    readonly NavigationManager navManager;
+    readonly BleConnectionState state;
+
+    readonly Mapsui.Map map;
+
     MemoryLayer? pinLayer;
     MemoryLayer? routeLayer;
+    MyLocationLayer? myLocation;
 
     (double lat, double lon) start;
     (double lat, double lon) dest;
 
+    List<(double lat, double lon)>? route;
+
     const string API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImE2Y2NjNGFmZjdhYTQ3NjliMjZjMTRjNmFmYjBjNDhlIiwiaCI6Im11cm11cjY0In0=";
 
-    public RoutePage()
+    public RoutePage(NavigationManager nav, BleConnectionState connectionState)
     {
         InitializeComponent();
 
-        Mapsui.Map map = new();
-        map.Layers.Add(OpenStreetMap.CreateTileLayer());
+        map = MapControl.Map;
 
-        MapControl.Map = map;
+        map.Layers.Add(OpenStreetMap.CreateTileLayer()); ;
 
         (double x, double y) defaultCenter = SphericalMercator.FromLonLat(13.723076680216279, 51.05120761645636);
         map.Navigator.CenterOnAndZoomTo(defaultCenter.ToMPoint(), 10);
+
+        navManager = nav;
+        state = connectionState;
+
+#if ANDROID31_0_OR_GREATER
+        LocationBus.LocationUpdated += OnLocationUpdated;
+#endif
     }
+
+#if ANDROID31_0_OR_GREATER
+    private void OnLocationUpdated(Android.Locations.Location location)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            Debug.WriteLine($"{location.Latitude:F6} {location.Longitude:F6} ±{location.Accuracy}m");
+
+            if (myLocation == null)
+            { return; }
+            myLocation.IsMoving = true;
+            myLocation.UpdateMyLocation(SphericalMercator.FromLonLat(location.Longitude, location.Latitude).ToMPoint(), true);
+        });
+    }
+#endif
 
     private void ShowPointOnMap(PointType type, double lat, double lon)
     {
         Mapsui.Styles.Color color;
-        Mapsui.Map map = MapControl.Map;
         (double x, double y) point = SphericalMercator.FromLonLat(lon, lat);
 
         if (type == PointType.Start)
@@ -90,8 +118,6 @@ public partial class RoutePage : ContentPage
 
     private void ShowRoute(List<(double lon, double lat)> routePoints)
     {
-        Mapsui.Map map = MapControl.Map;
-
         List<(double x, double y)> mercPts = routePoints.Select(p => SphericalMercator.FromLonLat(p.lon, p.lat)).ToList();
         Coordinate[] pts = mercPts.Select(p => new Coordinate(p.x, p.y)).ToArray();
 
@@ -158,6 +184,7 @@ public partial class RoutePage : ContentPage
 
     private async void OnRouteClicked(object sender, EventArgs e)
     {
+        RouteBtn.IsEnabled = false;
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(15));
 
         List<string> avoidFeatures = new();
@@ -167,6 +194,7 @@ public partial class RoutePage : ContentPage
         { avoidFeatures.Add(RouteNavigation.AvoidFeatures.tollways.ToString()); }
 
         var routingResponse = await RouteNavigation.GetRoutingResponseAsync(API_KEY, [start.lon, start.lat], [dest.lon, dest.lat], avoidFeatures.ToArray(), cts.Token);
+        RouteBtn.IsEnabled = true;
 
         if (routingResponse == null)
         {
@@ -175,7 +203,7 @@ public partial class RoutePage : ContentPage
             return;
         }
 
-        var route = RouteNavigation.GetRoute(routingResponse);
+        route = RouteNavigation.GetRoute(routingResponse);
         if (route == null)
         {
             await DisplayAlertAsync("Route", "Could not parse route.", "Close");
@@ -184,6 +212,7 @@ public partial class RoutePage : ContentPage
         }
 
         ShowRoute(route);
+
         TimeSpan timeToDestination = TimeSpan.FromSeconds(RouteNavigation.GetTimeToDest(routingResponse));
         DistanceToDestLabel.Text = $"{RouteNavigation.GetDistance(routingResponse) / 1000:F1} km";
         TimeToDestLabel.Text = $"{timeToDestination.Hours}:{timeToDestination.Minutes}";
@@ -191,5 +220,55 @@ public partial class RoutePage : ContentPage
     }
 
     private async void OnDriveClicked(object sender, EventArgs e)
-    { }
+    {
+        myLocation ??= new(map, SphericalMercator.FromLonLat(start.lon, start.lat).ToMPoint());
+        map.Layers.Add(myLocation);
+        map.Navigator.CenterOnAndZoomTo(myLocation.MyLocation, 1, 1000, Mapsui.Animations.Easing.SinInOut);
+
+        MapControl.Refresh();
+
+        try
+        {
+            await navManager.StartNavigationAsync();
+            StopBtn.IsEnabled = true;
+            DriveBtn.IsEnabled = false;
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlertAsync("Navigation", ex.Message, "Close");
+        }
+    }
+
+    private async void OnStopClicked(object sender, EventArgs e)
+    {
+        if (route != null)
+        { ShowRoute(route); }
+
+        if(myLocation != null)
+        { map.Layers.Remove(myLocation); }
+
+        navManager.StopNavigation();
+        StopBtn.IsEnabled = false;
+        DriveBtn.IsEnabled = true;
+    }
+
+    protected override bool OnBackButtonPressed()
+    {
+        if (!navManager.IsNavigating)
+        { return base.OnBackButtonPressed(); }
+
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            bool stop = await DisplayAlertAsync("Navigation", "Stop navigation?", "Yes", "No");
+            if (!stop)
+            { return; }
+
+            navManager.StopNavigation();
+            StopBtn.IsEnabled = false;
+            DriveBtn.IsEnabled = true;
+            await Shell.Current.GoToAsync("..");
+        });
+
+        return true;
+    }
 }

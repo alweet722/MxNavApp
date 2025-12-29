@@ -90,11 +90,21 @@
             HorizontalOptions="End"/>
         <Button
             Grid.Row="10"
-            Grid.ColumnSpan="2"
+            Grid.Column="0"
             Text="Drive"
             x:Name="DriveBtn"
             IsEnabled="False"
             Clicked="OnDriveClicked"
-            HorizontalOptions="Fill"/>
+            HorizontalOptions="Start"
+            WidthRequest="120"/>
+        <Button
+            Grid.Row="10"
+            Grid.Column="1"
+            Text="Stop"
+            x:Name="StopBtn"
+            IsEnabled="False"
+            Clicked="OnStopClicked"
+            HorizontalOptions="End"
+            WidthRequest="120"/>
     </Grid>
 </ContentPage>
