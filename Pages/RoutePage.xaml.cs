@@ -41,7 +41,7 @@ public partial class RoutePage : ContentPage
 
         map = MapControl.Map;
 
-        map.Layers.Add(OpenStreetMap.CreateTileLayer()); ;
+        map.Layers.Add(OpenStreetMap.CreateTileLayer());
 
         (double x, double y) defaultCenter = SphericalMercator.FromLonLat(13.723076680216279, 51.05120761645636);
         map.Navigator.CenterOnAndZoomTo(defaultCenter.ToMPoint(), 10);
@@ -65,6 +65,7 @@ public partial class RoutePage : ContentPage
             { return; }
             myLocation.IsMoving = true;
             myLocation.UpdateMyLocation(SphericalMercator.FromLonLat(location.Longitude, location.Latitude).ToMPoint(), true);
+            //RouteNavigation.BuildNavPacket();
         });
     }
 #endif

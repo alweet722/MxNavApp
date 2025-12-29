@@ -67,11 +67,11 @@ public partial class StartPage : ContentPage
     {
         if (connectedDevice != null)
         {
-            await Disconnect(connectedDevice);
+            await Disconnect();
 
             ConnDvc.Text = "Disconnected";
             ScanBtn.IsEnabled = true;
-            ConnectionToggleBtn.IsEnabled = true;
+            ConnectionToggleBtn.IsEnabled = false;
             ConnectionToggleBtn.Text = "Connect";
             NextPageBtn.IsVisible = false;
         }
@@ -123,15 +123,15 @@ public partial class StartPage : ContentPage
 
         navChar = await connectedDevice.GetCharacteristicAsync(SERVICE_UUID, NAV_UUID, cts.Token);
 
-        byte[] payload = RouteNavigation.BuildNavPacket(1, 1, 100, 0);
+        byte[] payload = RouteNavigation.BuildNavPacket(1, 13, 100, 0);
         await connectedDevice.WriteCharacteristicAsync(navChar, payload, false, cts.Token);
         state.IsConnected = true;
     }
 
-    private async Task Disconnect(IPeripheral? peripheral)
+    private async Task Disconnect()
     {
-        peripheral?.CancelConnection();
-        peripheral = null;
+        connectedDevice?.CancelConnection();
+        connectedDevice = null;
         state.IsConnected = false;
     }
 }

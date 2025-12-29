@@ -81,6 +81,9 @@ internal class RouteNavigation
     public static double GetTimeToDest(OrsRoutingResponse routingResponse)
     { return routingResponse.features[0].properties.summary.duration; }
 
+    public static List<OrsRoutingStep> GetRoutingSteps(OrsRoutingResponse routingResponse)
+    { return routingResponse.features[0].properties.segments[0].steps; }
+
     public static byte[] BuildNavPacket(ushort seq, byte type, ushort distMeters, byte flags)
     {
         byte[] data =
