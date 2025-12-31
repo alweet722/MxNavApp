@@ -22,6 +22,7 @@ public static class MauiProgram
         builder.Services.AddBluetoothLE();
         builder.Services.AddSingleton<BleConnectionState>();
         builder.Services.AddSingleton<NavigationManager>();
+        builder.Services.AddSingleton<BleSender>();
 
 #if DEBUG
         builder.Logging.AddDebug();

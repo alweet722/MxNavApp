@@ -6,7 +6,7 @@
     <Grid 
         RowSpacing="25" 
         Padding="30,25,30,25"  
-        RowDefinitions="30,50,615,*"
+        RowDefinitions="30,50,615,50"
         ColumnDefinitions="175,175">
         <Label 
             Grid.Row="0"
@@ -60,17 +60,14 @@
                 </DataTemplate>
             </CollectionView.ItemTemplate>
         </CollectionView>
-        <ImageButton
+        <Button
             Grid.Row="3"
             Grid.Column="1"
             x:Name="NextPageBtn"
-            Source="arrow_right.svg"
-            BackgroundColor="#AC99EA"
+            Text="Next"
             Clicked="OnNextPageClicked"
             IsVisible="False"
-            HeightRequest="50" 
-            WidthRequest="50" 
-            CornerRadius="50" 
+            WidthRequest="120" 
             HorizontalOptions="End"/>
     </Grid>
 </ContentPage>

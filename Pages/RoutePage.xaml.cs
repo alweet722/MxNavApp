@@ -20,22 +20,27 @@ public partial class RoutePage : ContentPage
     }
 
     readonly NavigationManager navManager;
-    readonly BleConnectionState state;
+    readonly BleSender bleSender;
 
     readonly Mapsui.Map map;
 
     MemoryLayer? pinLayer;
     MemoryLayer? routeLayer;
     MyLocationLayer? myLocation;
+    NavState? navState;
 
     (double lat, double lon) start;
     (double lat, double lon) dest;
 
     List<(double lat, double lon)>? route;
+    List<(double x, double y)>? routeXY;
+    List<PreparedStep>? preparedSteps;
+
+    double[]? totalDist;
 
     const string API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImE2Y2NjNGFmZjdhYTQ3NjliMjZjMTRjNmFmYjBjNDhlIiwiaCI6Im11cm11cjY0In0=";
 
-    public RoutePage(NavigationManager nav, BleConnectionState connectionState)
+    public RoutePage(NavigationManager nav, BleSender bleSender)
     {
         InitializeComponent();
 
@@ -47,7 +52,7 @@ public partial class RoutePage : ContentPage
         map.Navigator.CenterOnAndZoomTo(defaultCenter.ToMPoint(), 10);
 
         navManager = nav;
-        state = connectionState;
+        this.bleSender = bleSender;
 
 #if ANDROID31_0_OR_GREATER
         LocationBus.LocationUpdated += OnLocationUpdated;
@@ -57,15 +62,23 @@ public partial class RoutePage : ContentPage
 #if ANDROID31_0_OR_GREATER
     private void OnLocationUpdated(Android.Locations.Location location)
     {
-        MainThread.BeginInvokeOnMainThread(() =>
+        MainThread.BeginInvokeOnMainThread(async () =>
         {
             Debug.WriteLine($"{location.Latitude:F6} {location.Longitude:F6} ±{location.Accuracy}m");
+
+            CancellationTokenSource cts = new(TimeSpan.FromSeconds(5));
 
             if (myLocation == null)
             { return; }
             myLocation.IsMoving = true;
-            myLocation.UpdateMyLocation(SphericalMercator.FromLonLat(location.Longitude, location.Latitude).ToMPoint(), true);
-            //RouteNavigation.BuildNavPacket();
+            var currentLocation = SphericalMercator.FromLonLat(location.Longitude, location.Latitude);
+            myLocation.UpdateMyLocation(currentLocation.ToMPoint(), true);
+            var (s, dPerp, _, _) = RouteNavigation.MatchRouteToNextStep((currentLocation.x, currentLocation.y), routeXY, totalDist, preparedSteps, navState);
+            var (idx, distToNext) = RouteNavigation.ComputeStepAndDistance(s, preparedSteps, navState);
+
+            var nextStep = preparedSteps[idx].type;
+            byte[] payload = BleSender.BuildNavPacket((ushort)idx, (byte)nextStep, Convert.ToUInt16(Math.Round(distToNext)), 0);
+            await bleSender.WriteCharacteristicAsync(payload);
         });
     }
 #endif
@@ -214,6 +227,12 @@ public partial class RoutePage : ContentPage
 
         ShowRoute(route);
 
+        var steps = RouteNavigation.GetRoutingSteps(routingResponse);
+        totalDist = RouteNavigation.BuildTotalDist(route);
+        routeXY = RouteNavigation.ToMercator(route);
+        preparedSteps = RouteNavigation.PrepareSteps(steps, totalDist);
+        navState = new();
+
         TimeSpan timeToDestination = TimeSpan.FromSeconds(RouteNavigation.GetTimeToDest(routingResponse));
         DistanceToDestLabel.Text = $"{RouteNavigation.GetDistance(routingResponse) / 1000:F1} km";
         TimeToDestLabel.Text = $"{timeToDestination.Hours}:{timeToDestination.Minutes}";
@@ -245,7 +264,7 @@ public partial class RoutePage : ContentPage
         if (route != null)
         { ShowRoute(route); }
 
-        if(myLocation != null)
+        if (myLocation != null)
         { map.Layers.Remove(myLocation); }
 
         navManager.StopNavigation();
