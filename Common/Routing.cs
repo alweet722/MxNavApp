@@ -153,6 +153,7 @@ internal class RouteNavigation
                 way_points: [start, end],
                 coords: [totalDist[start], totalDist[end]]
                 ));
+            Debug.WriteLine($"{totalDist[start]} {totalDist[end]}");
         }
         return preparedSteps;
     }
@@ -229,7 +230,7 @@ internal class RouteNavigation
         return (s, bestD, bestI, bestT);
     }
 
-    public static (int currentStepIndex, double distToNext) ComputeStepAndDistance(double s, List<PreparedStep> steps, NavState state)
+    public static (int currentStepIndex, int manouverIndex, double dist) ComputeStepAndDistance(double s, List<PreparedStep> steps, NavState state)
     {
         while (state.CurrentStepIndex < steps.Count - 1 && s > steps[state.CurrentStepIndex].coords[1] + 10)
         { state.CurrentStepIndex++; }
@@ -237,11 +238,10 @@ internal class RouteNavigation
         while (state.CurrentStepIndex > 0 && s < steps[state.CurrentStepIndex].coords[0] - 20)
         { state.CurrentStepIndex--; }
 
-        var step = steps[state.CurrentStepIndex];
-        var distToNext = Math.Max(0, step.coords[1] - s);
+        int stepIndex = state.CurrentStepIndex;
+        int manouverIndex = Math.Min(stepIndex + 1, steps.Count - 1);
+        double dist = Math.Max(0, steps[stepIndex].coords[1] - s);
 
-        Debug.WriteLine(state.CurrentStepIndex);
-
-        return (state.CurrentStepIndex, distToNext);
+        return (stepIndex, manouverIndex, dist);
     }
 }

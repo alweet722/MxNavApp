@@ -74,10 +74,10 @@ public partial class RoutePage : ContentPage
             var currentLocation = SphericalMercator.FromLonLat(location.Longitude, location.Latitude);
             myLocation.UpdateMyLocation(currentLocation.ToMPoint(), true);
             var (s, dPerp, _, _) = RouteNavigation.MatchRouteToNextStep((currentLocation.x, currentLocation.y), routeXY, totalDist, preparedSteps, navState);
-            var (idx, distToNext) = RouteNavigation.ComputeStepAndDistance(s, preparedSteps, navState);
+            var (idx, nextIdx, distToNext) = RouteNavigation.ComputeStepAndDistance(s, preparedSteps, navState);
 
-            var nextStep = preparedSteps[idx].type;
-            byte[] payload = BleSender.BuildNavPacket((ushort)idx, (byte)nextStep, Convert.ToUInt16(Math.Round(distToNext)), 0);
+            var nextStep = preparedSteps[nextIdx].type;
+            byte[] payload = BleSender.BuildNavPacket((ushort)nextIdx, (byte)nextStep, (ushort)Math.Round(distToNext), 0);
             await bleSender.WriteCharacteristicAsync(payload);
         });
     }
