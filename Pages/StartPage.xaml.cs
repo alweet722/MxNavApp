@@ -19,6 +19,29 @@ public partial class StartPage : ContentPage
         this.bleManager = bleManager;
         this.bleSender = bleSender;
         Devices.ItemsSource = FoundDevices;
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            await CheckAndRequestLocationPermission();
+            await CheckAndRequestNotificationPermission();
+        });
+    }
+
+    private static async Task<PermissionStatus> CheckAndRequestLocationPermission()
+    {
+        var status = await Permissions.CheckStatusAsync<Permissions.LocationAlways>();
+        if (status == PermissionStatus.Granted)
+        { return status; }
+        await Permissions.RequestAsync<Permissions.LocationAlways>();
+        return status;
+    }
+
+    private static async Task<PermissionStatus> CheckAndRequestNotificationPermission()
+    {
+        var status = await Permissions.CheckStatusAsync<Permissions.PostNotifications>();
+        if (status == PermissionStatus.Granted)
+        { return status; }
+        await Permissions.RequestAsync<Permissions.PostNotifications>();
+        return status;
     }
 
     private async void OnScanClicked(object sender, EventArgs e)
