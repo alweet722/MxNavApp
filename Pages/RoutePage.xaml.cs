@@ -32,11 +32,12 @@ public partial class RoutePage : ContentPage
     (double lat, double lon) start;
     (double lat, double lon) dest;
 
-    List<(double lat, double lon)>? route;
+    List<(double lon, double lat)>? route;
     List<(double x, double y)>? routeXY;
     List<PreparedStep>? preparedSteps;
 
     double[]? totalDist;
+    double[]? segLen;
 
     const string API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImE2Y2NjNGFmZjdhYTQ3NjliMjZjMTRjNmFmYjBjNDhlIiwiaCI6Im11cm11cjY0In0=";
 
@@ -64,8 +65,7 @@ public partial class RoutePage : ContentPage
     {
         MainThread.BeginInvokeOnMainThread(async () =>
         {
-            Debug.WriteLine($"{location.Latitude:F6} {location.Longitude:F6} ±{location.Accuracy}m");
-
+            // Debug.WriteLine($"{location.Latitude:F6} {location.Longitude:F6} ±{location.Accuracy}m");
             CancellationTokenSource cts = new(TimeSpan.FromSeconds(5));
 
             if (myLocation == null)
@@ -73,7 +73,7 @@ public partial class RoutePage : ContentPage
             myLocation.IsMoving = true;
             var currentLocation = SphericalMercator.FromLonLat(location.Longitude, location.Latitude);
             myLocation.UpdateMyLocation(currentLocation.ToMPoint(), true);
-            var (s, dPerp, _, _) = RouteNavigation.MatchRouteToNextStep((currentLocation.x, currentLocation.y), routeXY, totalDist, preparedSteps, navState);
+            var (s, dPerp) = RouteNavigation.MatchRouteToNextStep((currentLocation.x, currentLocation.y), routeXY, totalDist, segLen, preparedSteps, navState);
             var (idx, nextIdx, distToNext) = RouteNavigation.ComputeStepAndDistance(s, preparedSteps, navState);
 
             var nextStep = preparedSteps[nextIdx].type;
@@ -228,9 +228,9 @@ public partial class RoutePage : ContentPage
         ShowRoute(route);
 
         var steps = RouteNavigation.GetRoutingSteps(routingResponse);
-        totalDist = RouteNavigation.BuildTotalDist(route);
-        routeXY = RouteNavigation.ToMercator(route);
+        (totalDist, segLen) = RouteNavigation.BuildTotalDist(route);
         preparedSteps = RouteNavigation.PrepareSteps(steps, totalDist);
+        routeXY = RouteNavigation.ToMercator(route);
         navState = new();
 
         TimeSpan timeToDestination = TimeSpan.FromSeconds(RouteNavigation.GetTimeToDest(routingResponse));
