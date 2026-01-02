@@ -39,35 +39,43 @@
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-android|AnyCPU'">
-	  <ApplicationTitle>NB Navigation App</ApplicationTitle>
+	  <ApplicationTitle>MX Navigation</ApplicationTitle>
+	  <ApplicationId>com.companyname.nbnavapp</ApplicationId>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-ios|AnyCPU'">
-	  <ApplicationTitle>NB Navigation App</ApplicationTitle>
+	  <ApplicationTitle>MX Navigation</ApplicationTitle>
+	  <ApplicationId>com.companyname.nbnavapp</ApplicationId>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-maccatalyst|AnyCPU'">
-	  <ApplicationTitle>NB Navigation App</ApplicationTitle>
+	  <ApplicationTitle>MX Navigation</ApplicationTitle>
+	  <ApplicationId>com.companyname.nbnavapp</ApplicationId>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-windows10.0.19041.0|AnyCPU'">
-	  <ApplicationTitle>NB Navigation App</ApplicationTitle>
+	  <ApplicationTitle>MX Navigation</ApplicationTitle>
+	  <ApplicationId>com.companyname.nbnavapp</ApplicationId>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0-android|AnyCPU'">
-	  <ApplicationTitle>NB Navigation App</ApplicationTitle>
+	  <ApplicationTitle>MX Navigation</ApplicationTitle>
+	  <ApplicationId>com.companyname.nbnavapp</ApplicationId>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0-ios|AnyCPU'">
-	  <ApplicationTitle>NB Navigation App</ApplicationTitle>
+	  <ApplicationTitle>MX Navigation</ApplicationTitle>
+	  <ApplicationId>com.companyname.nbnavapp</ApplicationId>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0-maccatalyst|AnyCPU'">
-	  <ApplicationTitle>NB Navigation App</ApplicationTitle>
+	  <ApplicationTitle>MX Navigation</ApplicationTitle>
+	  <ApplicationId>com.companyname.nbnavapp</ApplicationId>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0-windows10.0.19041.0|AnyCPU'">
-	  <ApplicationTitle>NB Navigation App</ApplicationTitle>
+	  <ApplicationTitle>MX Navigation</ApplicationTitle>
+	  <ApplicationId>com.companyname.nbnavapp</ApplicationId>
 	</PropertyGroup>
 
 	<ItemGroup>

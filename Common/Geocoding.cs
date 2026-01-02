@@ -23,19 +23,36 @@ internal class AddressGeocoder
         req.Headers.TryAddWithoutValidation("Accept", "application/json");
 
         HttpResponseMessage res = await client.SendAsync(req, ct);
-        res.EnsureSuccessStatusCode();
+        try
+        { res.EnsureSuccessStatusCode(); }
+        catch (HttpRequestException e)
+        {
+            await MauiAlertService.ShowAlertAsync("Geocoding", $"Error while resolving address: {e.StatusCode}: {e.Message}");
+            return null;
+        }
+
+
 
         string? json = await res.Content.ReadAsStringAsync(ct);
         OrsGeocodingResponse? geodata = JsonSerializer.Deserialize<OrsGeocodingResponse>(json);
         if (geodata == null)
-        { return null; }
+        {
+            await MauiAlertService.ShowAlertAsync("Geocoding", "No matches found");
+            return null;
+        }
 
         OrsGeocodingFeature? feature = geodata.features[0];
         if (feature == null)
-        { return null; }
+        {
+            await MauiAlertService.ShowAlertAsync("Geocoding", "No matches found");
+            return null;
+        }
 
         if (feature.geometry.coordinates == null || feature.geometry.coordinates.Length < 2)
-        { return null; }
+        {
+            await MauiAlertService.ShowAlertAsync("Geocoding", "No matches found");
+            return null;
+        }
 
         double lon = feature.geometry.coordinates[0];
         double lat = feature.geometry.coordinates[1];

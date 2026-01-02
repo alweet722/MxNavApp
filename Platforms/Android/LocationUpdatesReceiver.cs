@@ -1,8 +1,6 @@
 ﻿#if ANDROID31_0_OR_GREATER
 using Android.Content;
 using Android.Gms.Location;
-using Android.Util;
-using System.Diagnostics;
 
 namespace NBNavApp;
 

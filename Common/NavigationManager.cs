@@ -14,7 +14,7 @@ public class NavigationManager
     public async Task StartNavigationAsync()
     {
         if (!bleState.IsConnected)
-        { throw new InvalidOperationException("ESP32 not connected"); }
+        { await MauiAlertService.ShowAlertAsync("BLE", "Connection lost"); }
 
         if (IsNavigating)
         { return; }

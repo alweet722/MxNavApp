@@ -1,6 +1,5 @@
 ﻿using Shiny.BluetoothLE;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 
 namespace NBNavApp;
 
@@ -85,7 +84,10 @@ public partial class StartPage : ContentPage
             ScanBtn.IsEnabled = true;
             ConnectionToggleBtn.IsEnabled = false;
 
-            await bleSender.ConnectAndCacheCharacteristic(selection.Peripheral);
+            var status = await bleSender.ConnectAndCacheCharacteristic(selection.Peripheral);
+            if (!status)
+            { return; }
+
             ConnectionToggleBtn.Text = "Disconnect";
             ConnectionToggleBtn.IsEnabled = true;
 

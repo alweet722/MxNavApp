@@ -51,7 +51,7 @@
                                 <VisualState Name="Normal"/>
                                 <VisualState Name="Selected">
                                     <VisualState.Setters>
-                                        <Setter Property="BackgroundColor" Value="#AC99EA"/>
+                                        <Setter Property="BackgroundColor" Value="{StaticResource Secondary}"/>
                                     </VisualState.Setters>
                                 </VisualState>
                             </VisualStateGroup>

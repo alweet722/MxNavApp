@@ -1,7 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Shiny;
 using SkiaSharp.Views.Maui.Controls.Hosting;
-using System.Diagnostics;
 
 namespace NBNavApp;
 

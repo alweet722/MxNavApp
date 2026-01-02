@@ -1,5 +1,4 @@
 ﻿using Mapsui.Projections;
-using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 
@@ -23,15 +22,25 @@ public enum Instruction
     KEEP_RIGHT
 };
 
+public enum RouteState
+{
+    NORMAL,
+    OFF_ROUTE,
+    REROUTE
+};
+
 public class NavState
 {
-    public int CurrentStepIndex { get; set; }
-    public int LastSegIndex { get; set; }
+    public int CurrentStepIndex { get; set; } = 0;
+    public int LastSegIndex { get; set; } = 0;
+    public (double lat, double lon) Start { get; set; }
+    public (double lat, double lon) Destination { get; set; }
+    public RouteState RouteState { get; set; } = RouteState.NORMAL;
 }
 
 public record PreparedStep(int index, Instruction type, string? instruction, int[] way_points, double[] coords);
 
-internal class RouteNavigation
+public class RouteNavigation
 {
     public enum AvoidFeatures
     {
@@ -68,9 +77,9 @@ internal class RouteNavigation
             {
                 coordinates = new[]
                 {
-                start,
-                destination
-            },
+                    start,
+                    destination
+                },
                 options = new
                 {
                     avoid_features = avoidFeatures,
@@ -83,12 +92,19 @@ internal class RouteNavigation
             req.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
             using HttpResponseMessage res = await client.SendAsync(req, ct);
-            res.EnsureSuccessStatusCode();
+            try
+            { res.EnsureSuccessStatusCode(); }
+            catch (HttpRequestException e)
+            {
+                await MauiAlertService.ShowAlertAsync("Routing", $"Error while fetching route: {e.StatusCode}: {e.Message}");
+                return null;
+            }
 
             string json = await res.Content.ReadAsStringAsync(ct);
             OrsRoutingResponse? data = JsonSerializer.Deserialize<OrsRoutingResponse>(json);
             if (data == null)
             { return null; }
+
             return data;
         }
     }
@@ -97,7 +113,10 @@ internal class RouteNavigation
     {
         List<double[]>? coordinates = routingResponse?.features?[0].geometry?.coordinates;
         if (coordinates == null || coordinates.Count == 0)
-        { return null; }
+        {
+            MauiAlertService.ShowAlertAsync("Routing", "Route contains no waypoints");
+            return null;
+        }
 
         return coordinates.Select(c => (lon: c[0], lat: c[1])).ToList();
     }
@@ -110,6 +129,8 @@ internal class RouteNavigation
 
     public static List<OrsRoutingStep> GetRoutingSteps(OrsRoutingResponse routingResponse)
     { return routingResponse.features[0].properties.segments[0].steps; }
+
+    //public static 
 
     private static double HaversineMeters((double lon, double lat) start, (double lon, double lat) end)
     {
@@ -171,7 +192,7 @@ internal class RouteNavigation
         return preparedSteps;
     }
 
-    public static List<(double x, double y)> ToMercator(List<(double lat, double lon)> pts)
+    public static List<(double x, double y)> ToMercator(List<(double lon, double lat)> pts)
     => pts.Select(p =>
     {
         var m = SphericalMercator.FromLonLat(p.lon, p.lat);

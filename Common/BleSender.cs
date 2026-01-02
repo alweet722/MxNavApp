@@ -1,5 +1,6 @@
 ﻿using Shiny.BluetoothLE;
 using System.Collections.ObjectModel;
+using System.Text;
 
 namespace NBNavApp;
 
@@ -44,7 +45,7 @@ public class BleSender
         return peripherals;
     }
 
-    public async Task ConnectAndCacheCharacteristic(IPeripheral peripheral)
+    public async Task<bool> ConnectAndCacheCharacteristic(IPeripheral peripheral)
     {
         scanSub?.Dispose();
         scanSub = null;
@@ -53,11 +54,17 @@ public class BleSender
         ConnectedDevice = peripheral;
 
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(5));
-        await ConnectedDevice.ConnectAsync(null, cts.Token);
+        try
+        { await ConnectedDevice.ConnectAsync(null, cts.Token); }
+        catch (OperationCanceledException)
+        {
+            await MauiAlertService.ShowAlertAsync("BLE", "Connection timed out");
+            return false;
+        }
 
         navChar = await ConnectedDevice.GetCharacteristicAsync(SERVICE_UUID, NAV_UUID, cts.Token);
 
-        ConnectionState.IsConnected = true;
+        return ConnectionState.IsConnected = true;
     }
 
     public async Task WriteCharacteristicAsync(byte[] payload)
@@ -73,7 +80,7 @@ public class BleSender
         await ConnectedDevice.WriteCharacteristicAsync(navChar, payload, false, cts.Token);
     }
 
-    public static byte[] BuildNavPacket(ushort seq, byte type, ushort distMeters, byte flags)
+    public static byte[] BuildNavPacket(ushort seq, byte type, ushort distMeters, byte flag)
     {
         byte[] data =
         [
@@ -82,7 +89,7 @@ public class BleSender
             type,
             (byte)(distMeters & 0xFF),
             (byte)((distMeters >> 8) & 0xFF),
-            flags,
+            flag,
         ];
         return data;
     }
