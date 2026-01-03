@@ -213,10 +213,10 @@ public partial class RoutePage : ContentPage
     }
 
     private async Task RerouteAsync(
-    string apiKey,
-    double[] newStart,
-    double[] dest,
-    string[] avoid)
+        string apiKey,
+        double[] newStart,
+        double[] dest,
+        string[] avoid)
     {
         CancellationTokenSource cts = new(TimeSpan.FromSeconds(15));
         var res = await RouteNavigation.GetRoutingResponseAsync(apiKey, newStart, dest, avoid, cts.Token);

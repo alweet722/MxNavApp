@@ -5,6 +5,7 @@
              x:Class="NBNavApp.App">
     <Application.Resources>
         <ResourceDictionary>
+            <local:BoolToOpacityConverter x:Key="BoolToOpacity" FalseOpacity="0.4" TrueOpacity="1.0"/>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
                 <ResourceDictionary Source="Resources/Styles/Styles.xaml" />

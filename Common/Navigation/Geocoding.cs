@@ -16,13 +16,22 @@ internal class AddressGeocoder
         if (string.IsNullOrWhiteSpace(address))
         { return null; }
 
+        HttpResponseMessage res;
+
         string url = $"https://api.openrouteservice.org/geocode/search?text={Uri.EscapeDataString(address)}&size=1";
 
         using HttpRequestMessage req = new(HttpMethod.Get, url);
         req.Headers.TryAddWithoutValidation("Authorization", apiKey);
         req.Headers.TryAddWithoutValidation("Accept", "application/json");
 
-        HttpResponseMessage res = await client.SendAsync(req, ct);
+        try
+        { res = await client.SendAsync(req, ct); }
+        catch (Exception)
+        {
+            await MauiAlertService.ShowAlertAsync("Geocoding", "Server not available");
+            return null;
+        }
+
         try
         { res.EnsureSuccessStatusCode(); }
         catch (HttpRequestException e)
@@ -30,8 +39,6 @@ internal class AddressGeocoder
             await MauiAlertService.ShowAlertAsync("Geocoding", $"Error while resolving address: {e.StatusCode}: {e.Message}");
             return null;
         }
-
-
 
         string? json = await res.Content.ReadAsStringAsync(ct);
         OrsGeocodingResponse? geodata = JsonSerializer.Deserialize<OrsGeocodingResponse>(json);

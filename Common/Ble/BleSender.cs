@@ -1,28 +1,39 @@
 ﻿using Shiny.BluetoothLE;
 using System.Collections.ObjectModel;
-using System.Text;
+using System.ComponentModel;
 
 namespace NBNavApp;
 
 public class BleSender
 {
-    const string SERVICE_UUID = "6b7b3c93-1fdc-4f5b-97be-14adb4ffbf4d";
-    const string NAV_UUID = "6b7b3c94-1fdc-4f5b-97be-14adb4ffbf4d";
-
     BleCharacteristicInfo? navChar;
     IDisposable? scanSub;
 
+    public IBleManager BleManager { get; set; }
     public IPeripheral? ConnectedDevice { get; set; }
     public BleConnectionState ConnectionState { get; }
 
-    public BleSender(BleConnectionState connState)
-    { ConnectionState = connState; }
+    public BleSender(BleConnectionState connState, IBleManager bleManager)
+    {
+        ConnectionState = connState;
+        BleManager = bleManager;
+    }
 
-    public async Task<List<DeviceData>> ScanDevicesAsync(IBleManager bleManager, ObservableCollection<DeviceData>? table = null)
+    public async Task<List<DeviceData>> ScanDevicesAsync(ObservableCollection<DeviceData>? table = null, int timeout = 10)
     {
         List<DeviceData> peripherals = new();
+
+        if (timeout < 0)
+        { return peripherals; }
+
+        if (BleManager.IsScanning)
+        {
+            await MauiAlertService.ShowAlertAsync("BLE", "Another scan in progress");
+            return peripherals;
+        }
+
         scanSub?.Dispose();
-        scanSub = bleManager.Scan().Subscribe(s =>
+        scanSub = BleManager.Scan(new ScanConfig(Constants.SERVICE_UUID)).Subscribe(s =>
         {
             MainThread.BeginInvokeOnMainThread(() =>
             {
@@ -33,12 +44,12 @@ public class BleSender
                 if (peripherals.Any(x => x.Id == id))
                 { return; }
 
-                peripherals.Add(new(s.Peripheral, rssi));
-                table?.Add(new(s.Peripheral, rssi));
+                peripherals.Add(new(rssi, id, name, s.Peripheral));
+                table?.Add(new(rssi, id, name, s.Peripheral));
             });
         });
 
-        await Task.Delay(TimeSpan.FromSeconds(10));
+        await Task.Delay(TimeSpan.FromSeconds(timeout));
         scanSub?.Dispose();
         scanSub = null;
 
@@ -62,7 +73,7 @@ public class BleSender
             return false;
         }
 
-        navChar = await ConnectedDevice.GetCharacteristicAsync(SERVICE_UUID, NAV_UUID, cts.Token);
+        navChar = await ConnectedDevice.GetCharacteristicAsync(Constants.SERVICE_UUID, Constants.NAV_UUID, cts.Token);
 
         return ConnectionState.IsConnected = true;
     }
@@ -102,17 +113,28 @@ public class BleSender
     }
 }
 
-public class DeviceData
+public class DeviceData : INotifyPropertyChanged
 {
-    public IPeripheral Peripheral { get; }
-    public string Name => Peripheral.Name ?? "NO_NAME";
-    public string Id => Peripheral.Uuid;
+    IPeripheral? peripheral;
+    public IPeripheral? Peripheral
+    {
+        get => peripheral;
+        set { peripheral = value; OnChanged(nameof(Peripheral)); OnChanged(nameof(IsEnabled)); }
+    }
+    public string Name { get; }
+    public string Id { get; }
     public int Rssi { get; }
     public string Details => $"RSSI {Rssi} | {Id}";
+    public bool IsEnabled => Peripheral != null;
 
-    public DeviceData(IPeripheral peripheral, int rssi)
+    public DeviceData(int rssi, string id, string name = "NO_NAME", IPeripheral? peripheral = null)
     {
-        Peripheral = peripheral;
         Rssi = rssi;
+        Id = id;
+        Name = name;
+        Peripheral = peripheral;
     }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    void OnChanged(string n) => PropertyChanged?.Invoke(this, new(n));
 }

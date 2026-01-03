@@ -1,54 +1,55 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="NBNavApp.StartPage" >
+             x:Class="NBNavApp.StartPage"
+             xmlns:vm="clr-namespace:NBNavApp.ViewModels">
 
     <Grid 
         RowSpacing="25" 
         Padding="30,25,30,25"  
-        RowDefinitions="30,50,615,50"
+        RowDefinitions="30,50,1,25,450,50,50"
         ColumnDefinitions="175,175">
-        <Label 
+        <Label
             Grid.Row="0"
             Grid.ColumnSpan="2"
-            x:Name="ConnDvc" 
-            FontSize="Medium" 
-            Text="Disconnected"
-            VerticalOptions="Start"/>
-        <Button 
-            Grid.Row="1"
-            Grid.Column="0"
-            x:Name="ScanBtn" 
-            Text="Scan" 
-            Clicked="OnScanClicked" 
-            WidthRequest="120" 
-            HorizontalOptions="Start"/>
-        <Button 
-            Grid.Row="1"
+            FontSize="Medium"
+            Text="My MX-Nav Device"
+            VerticalOptions="Center"/>
+        <Label 
+            Grid.Row="0"
             Grid.Column="1"
-            x:Name="ConnectionToggleBtn" 
-            Text="Connect" 
-            Clicked="OnConnectionToggleClicked" 
-            IsEnabled="False" 
-            WidthRequest="120" 
+            x:Name="ConnDvc" 
+            FontSize="16" 
+            Text="Disconnected"
+            VerticalOptions="Center"
             HorizontalOptions="End"/>
         <CollectionView
-            Grid.Row="2"
+            Grid.Row="1"
             Grid.ColumnSpan="2"
-            x:Name="Devices" 
+            ItemsSource="{Binding MyDevice}"
+            x:Name="MyDevice"
+            ClassId="MyDevice"
+            VerticalScrollBarVisibility="Never"
             SelectionMode="Single" 
-            SelectionChanged="OnDeviceSelected" >
+            SelectionChanged="OnDeviceSelected"
+            VerticalOptions="Center">
             <CollectionView.ItemsLayout>
                 <LinearItemsLayout Orientation="Vertical" ItemSpacing="10" />
             </CollectionView.ItemsLayout>
             <CollectionView.ItemTemplate>
                 <DataTemplate>
-                    <VerticalStackLayout Spacing="4">
-                        <Label Text="{Binding Name}" FontAttributes="Bold"/>
-                        <Label Text="{Binding Details}" FontSize="12"/>
+                    <VerticalStackLayout Opacity="{Binding IsEnabled, Converter={StaticResource BoolToOpacity}}" Spacing="4">
+                        <Label 
+                            Text="{Binding Name}" 
+                            FontAttributes="Bold"
+                            FontSize="16"
+                            HeightRequest="25"/>
+                        <Label 
+                            Text="{Binding Details}" 
+                            FontSize="14"
+                            HeightRequest="25"/>
                         <VisualStateManager.VisualStateGroups>
                             <VisualStateGroup Name="CommonStates">
-                                <VisualState Name="Normal"/>
                                 <VisualState Name="Selected">
                                     <VisualState.Setters>
                                         <Setter Property="BackgroundColor" Value="{StaticResource Secondary}"/>
@@ -60,13 +61,75 @@
                 </DataTemplate>
             </CollectionView.ItemTemplate>
         </CollectionView>
-        <Button
+        <BoxView
+            Grid.Row="2"
+            Grid.ColumnSpan="2"
+            HeightRequest="2"
+            Color="{StaticResource Secondary}"
+            VerticalOptions="Start"/>
+        <Label
             Grid.Row="3"
+            Grid.ColumnSpan="2"
+            Text="Available devices"
+            FontSize="Medium"/>
+        <RefreshView
+            Grid.Row="4"
+            Grid.ColumnSpan="2"
+            RefreshColor="{StaticResource Tertiary}"
+            IsRefreshing="{Binding IsScanning}"
+            Command="{Binding ScanCommand}">
+            <Border
+                Stroke="{StaticResource Secondary}"
+                StrokeThickness="2"
+                StrokeShape="RoundRectangle 10,10,10,10"
+                Padding="15,10,15,10">
+                <CollectionView
+                    ItemsSource="{Binding FoundDevices}"
+                    x:Name="FoundDevices"
+                    ClassId="FoundDevices"
+                    VerticalScrollBarVisibility="Always"
+                    SelectionMode="Single" 
+                    SelectionChanged="OnDeviceSelected" >
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="10" />
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="{Binding Name}" FontAttributes="Bold"/>
+                                <Label Text="{Binding Details}" FontSize="12"/>
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup Name="CommonStates">
+                                        <VisualState Name="Normal"/>
+                                        <VisualState Name="Selected">
+                                            <VisualState.Setters>
+                                                <Setter Property="BackgroundColor" Value="{StaticResource Secondary}"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                            </VerticalStackLayout>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </Border>
+        </RefreshView>
+        <Button 
+            Grid.Row="5"
+            Grid.Column="1"
+            x:Name="ConnectionToggleBtn" 
+            Text="Connect" 
+            Clicked="OnConnectionToggleClicked" 
+            IsEnabled="False" 
+            WidthRequest="120" 
+            HorizontalOptions="End"/>
+        <Button
+            Grid.Row="6"
             Grid.Column="1"
             x:Name="NextPageBtn"
             Text="Next"
             Clicked="OnNextPageClicked"
-            IsVisible="False"
+            IsEnabled="False"
             WidthRequest="120" 
             HorizontalOptions="End"/>
     </Grid>

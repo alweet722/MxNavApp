@@ -1,23 +1,23 @@
-﻿using Shiny.BluetoothLE;
+﻿using NBNavApp.ViewModels;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 
 namespace NBNavApp;
 
 public partial class StartPage : ContentPage
 {
-    readonly IBleManager bleManager;
     readonly BleSender bleSender;
+    readonly BleScanViewModel vm;
+    readonly ObservableCollection<DeviceData> myDevice = new();
 
     DeviceData? selection;
 
-    public ObservableCollection<DeviceData> FoundDevices { get; } = new();
-
-    public StartPage(IBleManager bleManager, BleSender bleSender)
+    public StartPage(BleSender bleSender, BleScanViewModel vm)
     {
         InitializeComponent();
-        this.bleManager = bleManager;
         this.bleSender = bleSender;
-        Devices.ItemsSource = FoundDevices;
+        BindingContext = this.vm = vm;
+
         MainThread.BeginInvokeOnMainThread(async () =>
         {
             await CheckAndRequestLocationPermission();
@@ -43,24 +43,6 @@ public partial class StartPage : ContentPage
         return status;
     }
 
-    private async void OnScanClicked(object sender, EventArgs e)
-    {
-        ScanBtn.IsEnabled = false;
-        Shiny.AccessState access = await bleManager.RequestAccessAsync();
-        if (access != Shiny.AccessState.Available)
-        {
-            await DisplayAlertAsync("BLE", $"No access: {access}", "Close");
-            ScanBtn.IsEnabled = true;
-            return;
-        }
-
-        FoundDevices.Clear();
-
-        await bleSender.ScanDevicesAsync(bleManager, FoundDevices);
-
-        ScanBtn.IsEnabled = true;
-    }
-
     private async void OnConnectionToggleClicked(object sender, EventArgs e)
     {
         if (bleSender.ConnectedDevice != null)
@@ -68,43 +50,75 @@ public partial class StartPage : ContentPage
             await bleSender.Disconnect();
 
             ConnDvc.Text = "Disconnected";
-            ScanBtn.IsEnabled = true;
             ConnectionToggleBtn.IsEnabled = false;
             ConnectionToggleBtn.Text = "Connect";
-            NextPageBtn.IsVisible = false;
+            NextPageBtn.IsEnabled = false;
         }
         else
         {
-            if (selection == null)
+            if (selection == null || selection.Peripheral == null)
             {
                 ConnectionToggleBtn.IsEnabled = false;
                 return;
             }
 
-            ScanBtn.IsEnabled = true;
             ConnectionToggleBtn.IsEnabled = false;
 
             var status = await bleSender.ConnectAndCacheCharacteristic(selection.Peripheral);
             if (!status)
-            { return; }
+            {
+                await MauiAlertService.ShowAlertAsync("BLE", "Connection attempt failed");
+                return;
+            }
+
+            if (!Preferences.Default.ContainsKey(Constants.DISPL_DEV_KEY) || string.IsNullOrEmpty(Preferences.Default.Get(Constants.DISPL_DEV_KEY, string.Empty)))
+            { Preferences.Default.Set(Constants.DISPL_DEV_KEY, bleSender.ConnectedDevice?.Name); }
+
+            if (vm.MyDevice.Count < 1)
+            { vm.MyDevice.Add(selection); }
 
             ConnectionToggleBtn.Text = "Disconnect";
             ConnectionToggleBtn.IsEnabled = true;
 
-            ConnDvc.Text = $"Connected to {bleSender.ConnectedDevice?.Name}";
-            NextPageBtn.IsVisible = true;
-            Devices.SelectedItem = null;
+            ConnDvc.Text = $"{bleSender.ConnectedDevice?.Name}";
+            NextPageBtn.IsEnabled = true;
+
+            MyDevice.SelectedItem = null;
+            FoundDevices.SelectedItem = null;
         }
     }
 
     private async void OnNextPageClicked(object sender, EventArgs e)
     {
+        if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
+        {
+            await MauiAlertService.ShowAlertAsync("Network", "No internet connection! Internet connection required for routing.");
+            return;
+        }
         await Shell.Current.GoToAsync("RoutePage");
     }
 
     private async void OnDeviceSelected(object sender, SelectionChangedEventArgs e)
     {
+        CollectionView view = (CollectionView)sender;
+        if (view.ClassId == "MyDevice")
+        { FoundDevices.SelectedItem = null; }
+        else if (view.ClassId == "FoundDevices")
+        { MyDevice.SelectedItem = null; }
+
         selection = (DeviceData?)e.CurrentSelection.FirstOrDefault();
+
+        if (selection == null || selection.Peripheral == null)
+        {
+            view.SelectedItem = null;
+            return;
+        }
         ConnectionToggleBtn.IsEnabled = true;
+    }
+
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        await vm.InitialScanAsync();
     }
 }

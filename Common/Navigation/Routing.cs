@@ -130,8 +130,6 @@ public class RouteNavigation
     public static List<OrsRoutingStep> GetRoutingSteps(OrsRoutingResponse routingResponse)
     { return routingResponse.features[0].properties.segments[0].steps; }
 
-    //public static 
-
     private static double HaversineMeters((double lon, double lat) start, (double lon, double lat) end)
     {
         const double EARTH_R = 6371000.0;
