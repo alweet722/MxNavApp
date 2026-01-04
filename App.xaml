@@ -2,14 +2,19 @@
 <Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:NBNavApp"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              x:Class="NBNavApp.App">
+    
     <Application.Resources>
         <ResourceDictionary>
-            <local:BoolToOpacityConverter x:Key="BoolToOpacity" FalseOpacity="0.4" TrueOpacity="1.0"/>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
                 <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <local:BoolToOpacityConverter x:Key="BoolToOpacity" FalseOpacity="0.4" TrueOpacity="1.0"/>
+            <local:BoolToSelectionColorConverter x:Key="BoolToSelectionColor" FalseColor="Transparent" TrueColor="{StaticResource DarkSelection}"/>
+            <local:BoolToSelectionColorConverter x:Key="BoolToTextColor" FalseColor="{StaticResource White}" TrueColor="{StaticResource Black}"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

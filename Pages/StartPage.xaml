@@ -1,14 +1,25 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="NBNavApp.StartPage"
-             xmlns:vm="clr-namespace:NBNavApp.ViewModels">
+<ContentPage 
+    x:Name="MainPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+    x:Class="NBNavApp.StartPage"
+    xmlns:vm="clr-namespace:NBNavApp.ViewModels">
+
+    <ContentPage.Behaviors>
+        <toolkit:EventToCommandBehavior EventName="Appearing"
+                                        Command="{Binding BindingContext.AppearingCommand, Source={x:Reference MainPage}}"/>
+    </ContentPage.Behaviors>
 
     <Grid 
         RowSpacing="25" 
         Padding="30,25,30,25"  
         RowDefinitions="30,50,1,25,450,50,50"
         ColumnDefinitions="175,175">
+        <Grid.GestureRecognizers>
+            <TapGestureRecognizer Command="{Binding ClearSelectionCommand}"/>
+        </Grid.GestureRecognizers>
         <Label
             Grid.Row="0"
             Grid.ColumnSpan="2"
@@ -18,49 +29,32 @@
         <Label 
             Grid.Row="0"
             Grid.Column="1"
-            x:Name="ConnDvc" 
             FontSize="16" 
-            Text="Disconnected"
+            Text="{Binding ConnectionStatusText}"
             VerticalOptions="Center"
             HorizontalOptions="End"/>
-        <CollectionView
+        <Border 
+            x:Name="MyDeviceRoot"
             Grid.Row="1"
             Grid.ColumnSpan="2"
-            ItemsSource="{Binding MyDevice}"
-            x:Name="MyDevice"
-            ClassId="MyDevice"
-            VerticalScrollBarVisibility="Never"
-            SelectionMode="Single" 
-            SelectionChanged="OnDeviceSelected"
-            VerticalOptions="Center">
-            <CollectionView.ItemsLayout>
-                <LinearItemsLayout Orientation="Vertical" ItemSpacing="10" />
-            </CollectionView.ItemsLayout>
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <VerticalStackLayout Opacity="{Binding IsEnabled, Converter={StaticResource BoolToOpacity}}" Spacing="4">
-                        <Label 
-                            Text="{Binding Name}" 
-                            FontAttributes="Bold"
-                            FontSize="16"
-                            HeightRequest="25"/>
-                        <Label 
-                            Text="{Binding Details}" 
-                            FontSize="14"
-                            HeightRequest="25"/>
-                        <VisualStateManager.VisualStateGroups>
-                            <VisualStateGroup Name="CommonStates">
-                                <VisualState Name="Selected">
-                                    <VisualState.Setters>
-                                        <Setter Property="BackgroundColor" Value="{StaticResource Secondary}"/>
-                                    </VisualState.Setters>
-                                </VisualState>
-                            </VisualStateGroup>
-                        </VisualStateManager.VisualStateGroups>
-                    </VerticalStackLayout>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+            Stroke="{StaticResource Secondary}"
+            StrokeThickness="2"
+            StrokeShape="RoundRectangle 10,10,10,10"
+            Padding="15,10,15,10"
+            IsEnabled="{Binding MyDeviceIsEnabled}"
+            BackgroundColor="{Binding MyDeviceIsSelected, Converter={StaticResource BoolToSelectionColor}}">
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer
+                    Command="{Binding SelectMyDeviceCommand}"/>
+            </Border.GestureRecognizers>
+            <Label 
+                x:Name="MyDeviceNameLabel"
+                Text="{Binding MyDevice.Name}" 
+                FontAttributes="Bold"
+                FontSize="16"
+                TextColor="{Binding MyDeviceIsSelected, Converter={StaticResource BoolToTextColor}}"
+                VerticalOptions="Center"/>
+        </Border>
         <BoxView
             Grid.Row="2"
             Grid.ColumnSpan="2"
@@ -82,33 +76,56 @@
                 Stroke="{StaticResource Secondary}"
                 StrokeThickness="2"
                 StrokeShape="RoundRectangle 10,10,10,10"
-                Padding="15,10,15,10">
+                Padding="10,5,10,5">
                 <CollectionView
                     ItemsSource="{Binding FoundDevices}"
-                    x:Name="FoundDevices"
-                    ClassId="FoundDevices"
-                    VerticalScrollBarVisibility="Always"
                     SelectionMode="Single" 
-                    SelectionChanged="OnDeviceSelected" >
+                    SelectedItem="{Binding SelectedFoundDevice, Mode=TwoWay}" >
+                    <CollectionView.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding ClearSelectionCommand}"/>
+                    </CollectionView.GestureRecognizers>
                     <CollectionView.ItemsLayout>
                         <LinearItemsLayout Orientation="Vertical" ItemSpacing="10" />
                     </CollectionView.ItemsLayout>
                     <CollectionView.ItemTemplate>
                         <DataTemplate>
-                            <VerticalStackLayout Spacing="4">
-                                <Label Text="{Binding Name}" FontAttributes="Bold"/>
-                                <Label Text="{Binding Details}" FontSize="12"/>
+                            <Border
+                                x:Name="Root"
+                                Padding="10,5,10,5"
+                                StrokeShape="RoundRectangle 10,10,10,10"
+                                StrokeThickness="1"
+                                Stroke="Transparent"
+                                BackgroundColor="Transparent"
+                                HorizontalOptions="Fill">
+                                <VerticalStackLayout Spacing="4">
+                                    <Label
+                                        x:Name="NameLabel"
+                                        Text="{Binding Name}" 
+                                        FontAttributes="Bold"/>
+                                    <Label 
+                                        x:Name="DetailsLabel"
+                                        Text="{Binding Details}" 
+                                        FontSize="12"/>
+                                </VerticalStackLayout>
                                 <VisualStateManager.VisualStateGroups>
                                     <VisualStateGroup Name="CommonStates">
                                         <VisualState Name="Normal"/>
                                         <VisualState Name="Selected">
                                             <VisualState.Setters>
-                                                <Setter Property="BackgroundColor" Value="{StaticResource Secondary}"/>
+                                                <Setter TargetName="Root"
+                                                        Property="Border.BackgroundColor"
+                                                        Value="{toolkit:AppThemeResource SelectionColor}" />
+                                                <Setter TargetName="NameLabel"
+                                                        Property="Label.TextColor"
+                                                        Value="{toolkit:AppThemeResource TextColorSelected}" />
+                                                <Setter TargetName="DetailsLabel"
+                                                        Property="Label.TextColor"
+                                                        Value="{toolkit:AppThemeResource TextColorSelected}" />
                                             </VisualState.Setters>
                                         </VisualState>
                                     </VisualStateGroup>
                                 </VisualStateManager.VisualStateGroups>
-                            </VerticalStackLayout>
+                            </Border>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
@@ -117,19 +134,16 @@
         <Button 
             Grid.Row="5"
             Grid.Column="1"
-            x:Name="ConnectionToggleBtn" 
-            Text="Connect" 
-            Clicked="OnConnectionToggleClicked" 
-            IsEnabled="False" 
+            Text="{Binding ConnectButtonText}" 
+            Command="{Binding ToggleConnectCommand}"
             WidthRequest="120" 
             HorizontalOptions="End"/>
         <Button
             Grid.Row="6"
             Grid.Column="1"
-            x:Name="NextPageBtn"
             Text="Next"
-            Clicked="OnNextPageClicked"
-            IsEnabled="False"
+            Command="{Binding GoToRouteCommand}"
+            IsEnabled="{Binding CanGoNext}"
             WidthRequest="120" 
             HorizontalOptions="End"/>
     </Grid>
