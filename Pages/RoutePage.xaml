@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:mapsui="clr-namespace:Mapsui.UI.Maui;assembly=Mapsui.UI.Maui"
-             x:Class="NBNavApp.RoutePage"
-             Title="Route">
+<ContentPage 
+    x:Name="RoutePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:mapsui="clr-namespace:Mapsui.UI.Maui;assembly=Mapsui.UI.Maui"
+    x:Class="NBNavApp.RoutePage"
+    xmlns:vm="clr-namespace:NBNavApp.ViewModels"
+    Title="Route">
+    
     <Grid 
         Padding="30,25,30,25" 
         RowSpacing="10"
@@ -58,14 +62,11 @@
             Grid.Row="6"
             Grid.ColumnSpan="2"
             Text="Route"
-            x:Name="RouteBtn"
             Command="{Binding RouteCommand}"
-            Clicked="OnRouteClicked"
             HorizontalOptions="Fill"/>
         <mapsui:MapControl
             Grid.Row="7"
             Grid.ColumnSpan="2"
-            x:Name="MapControl"
             Map="{Binding Map}"/>
         <Label
             Grid.Row="8"
@@ -80,14 +81,12 @@
         <Label
             Grid.Row="8"
             Grid.Column="1"
-            x:Name="DistanceToDestLabel"
             Text="{Binding DistToDestText}"
             FontSize="14"
             HorizontalOptions="End"/>
         <Label
             Grid.Row="9"
             Grid.Column="1"
-            x:Name="TimeToDestLabel"
             Text="{Binding TimeToDestText}"
             FontSize="14"
             HorizontalOptions="End"/>
@@ -95,9 +94,6 @@
             Grid.Row="10"
             Grid.Column="0"
             Text="Drive"
-            x:Name="DriveBtn"
-            IsEnabled="False"
-            Clicked="OnDriveClicked"
             Command="{Binding DriveCommand}"
             HorizontalOptions="Start"
             WidthRequest="120"/>
@@ -105,9 +101,6 @@
             Grid.Row="10"
             Grid.Column="1"
             Text="Stop"
-            x:Name="StopBtn"
-            IsEnabled="False"
-            Clicked="OnStopClicked"
             Command="{Binding StopCommand}"
             HorizontalOptions="End"
             WidthRequest="120"/>

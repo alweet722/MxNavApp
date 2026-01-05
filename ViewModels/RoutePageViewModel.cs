@@ -11,7 +11,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows.Input;
 
-namespace NBNavApp;
+namespace NBNavApp.ViewModels;
 
 public class RoutePageViewModel : INotifyPropertyChanged
 {
@@ -136,6 +136,32 @@ public class RoutePageViewModel : INotifyPropertyChanged
         }
     }
 
+    (double lat, double lon) startLocation;
+    public (double lat, double lon) StartLocation
+    {
+        get => startLocation;
+        set
+        {
+            if (startLocation == value) return;
+            startLocation = value;
+            OnPropertyChanged(nameof(StartLocation));
+            ((Command)RouteCommand).ChangeCanExecute();
+        }
+    }
+
+    (double lat, double lon) destLocation;
+    public (double lat, double lon) DestLocation
+    {
+        get => destLocation;
+        set
+        {
+            if (destLocation == value) return;
+            destLocation = value;
+            OnPropertyChanged(nameof(DestLocation));
+            ((Command)RouteCommand).ChangeCanExecute();
+        }
+    }
+
     public Mapsui.Map Map { get; } = new()
     {
         CRS = "EPSG:3857"
@@ -155,21 +181,13 @@ public class RoutePageViewModel : INotifyPropertyChanged
         this.nav = nav;
         this.bleSender = bleSender;
 
-        StartAddressCompletedCommand = new Command(async () =>
-        {
-            Debug.WriteLine("StartAddressCompletedCommand executed");
-            GeocodeAddressAsync(StartAddressText, PointType.Start);
-        });
+        StartAddressCompletedCommand = new Command(async () => GeocodeAddressAsync(StartAddressText, PointType.Start));
 
-        DestAddressCompletedCommand = new Command(async () =>
-        {
-            Debug.WriteLine("DestAddressCompletedCommand executed");
-            GeocodeAddressAsync(DestAddressText, PointType.Destination);
-        });
+        DestAddressCompletedCommand = new Command(async () => GeocodeAddressAsync(DestAddressText, PointType.Destination));
 
         RouteCommand = new Command(
             execute: async () => await RouteAsync(),
-            canExecute: () => navState.Start != (0, 0) && navState.Destination != (0, 0)
+            canExecute: () => StartLocation != (0, 0) && DestLocation != (0, 0) && !IsRouting
             );
 
         DriveCommand = new Command(
@@ -196,6 +214,15 @@ public class RoutePageViewModel : INotifyPropertyChanged
         OffRouteDetector.GoneOffRoute += OnGoneOffRoute;
     }
 
+    public void NotifyUi()
+    {
+        OnPropertyChanged(nameof(IsRouting));
+        OnPropertyChanged(nameof(IsDriving));
+
+        ((Command)DriveCommand).ChangeCanExecute();
+        ((Command)StopCommand).ChangeCanExecute();
+    }
+
     private void OnGoneOffRoute(object? sender, EventArgs e)
     {
         MainThread.BeginInvokeOnMainThread(async () =>
@@ -219,16 +246,16 @@ public class RoutePageViewModel : INotifyPropertyChanged
         switch (pointType)
         {
             case PointType.Destination:
-                navState.Destination = (geocode.Value.lat, geocode.Value.lon);
+                DestLocation = navState.Destination = (geocode.Value.lat, geocode.Value.lon);
                 DestAddressText = geocode.Value.label;
                 ShowPointOnMap(PointType.Destination, geocode.Value.lat, geocode.Value.lon);
                 break;
             case PointType.Start:
-                navState.Start = (geocode.Value.lat, geocode.Value.lon);
+                StartLocation = navState.Start = (geocode.Value.lat, geocode.Value.lon);
                 StartAddressText = geocode.Value.label;
                 ShowPointOnMap(PointType.Start, geocode.Value.lat, geocode.Value.lon);
                 break;
-        }
+        };
     }
 
     private void ShowPointOnMap(PointType type, double lat, double lon)
@@ -321,7 +348,8 @@ public class RoutePageViewModel : INotifyPropertyChanged
         if (AvoidToll)
         { avoidFeatures.Add(RouteNavigation.AvoidFeatures.tollways.ToString()); }
 
-        isRouting = true;
+        IsRouting = true;
+        NotifyUi();
 
         var routingResponse = await RouteNavigation.GetRoutingResponseAsync(
             Constants.API_KEY,
@@ -333,6 +361,8 @@ public class RoutePageViewModel : INotifyPropertyChanged
         if (routingResponse == null)
         {
             IsRouting = false;
+            NotifyUi();
+
             return;
         }
 
@@ -340,6 +370,8 @@ public class RoutePageViewModel : INotifyPropertyChanged
         if (route == null)
         {
             IsRouting = false;
+            NotifyUi();
+
             return;
         }
 
@@ -355,6 +387,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
         TimeToDestText = $"{timeToDestination.Hours}:{timeToDestination.Minutes}";
 
         IsRouting = false;
+        NotifyUi();
     }
 
     private async Task StartDriveAsync()
@@ -371,7 +404,9 @@ public class RoutePageViewModel : INotifyPropertyChanged
             await MauiAlertService.ShowAlertAsync("Navigation", ex.Message);
             return;
         }
+
         IsDriving = true;
+        NotifyUi();
     }
 
     private async Task StopDriveAsync()
@@ -385,7 +420,9 @@ public class RoutePageViewModel : INotifyPropertyChanged
         nav.StopNavigation();
 
         await bleSender.WriteCharacteristicAsync(new byte[] { 0x00 });
+
         IsDriving = false;
+        NotifyUi();
     }
 
 #if ANDROID31_0_OR_GREATER
@@ -432,6 +469,9 @@ public class RoutePageViewModel : INotifyPropertyChanged
                     catch (TaskCanceledException)
                     {
                         nav.StopNavigation();
+
+                        IsDriving = false;
+                        NotifyUi();
                         return;
                     }
 
