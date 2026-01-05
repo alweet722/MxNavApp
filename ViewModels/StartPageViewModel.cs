@@ -175,6 +175,8 @@ public class StartPageViewModel : INotifyPropertyChanged
 
                 if (found != null)
                 { MyDevice = found; }
+                else
+                { MyDevice = new(0, "N/A", fav); }
             }
         }
         finally

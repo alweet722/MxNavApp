@@ -18,11 +18,10 @@
         <Entry 
             Grid.Row="1"
             Grid.ColumnSpan="2"
-            ClassId="StartAddrInput"
-            x:Name="StartAddrInput"
             Placeholder="Start address or coordinates"
             FontSize="18"
-            Completed="OnEntryCompleted"/>
+            Text="{Binding StartAddressText, Mode=TwoWay}"
+            ReturnCommand="{Binding StartAddressCompletedCommand}"/>
         <Label 
             Grid.Row="2"
             Grid.ColumnSpan="2"
@@ -31,11 +30,10 @@
         <Entry 
             Grid.Row="3"
             Grid.ColumnSpan="2"
-            ClassId="DestAddrInput"
-            x:Name="DestAddrInput"
             Placeholder="Destination address or coordinates"
             FontSize="18"
-            Completed="OnEntryCompleted"/>
+            Text="{Binding DestAddressText, Mode=TwoWay}"
+            ReturnCommand="{Binding DestAddressCompletedCommand}"/>
         <Label
             Grid.Row="4"
             Grid.Column="0"
@@ -44,7 +42,8 @@
         <Switch
             Grid.Row="4"
             Grid.Column="1"
-            x:Name="AvoidHighwaysSw" />
+            x:Name="AvoidHighwaysSw"
+            IsToggled="{Binding AvoidHighways}"/>
         <Label
             Grid.Row="5"
             Grid.Column="0"
@@ -53,19 +52,21 @@
         <Switch
             Grid.Row="5"
             Grid.Column="1"
-            x:Name="AvoidTollSw" />
+            x:Name="AvoidTollSw"
+            IsToggled="{Binding AvoidToll}"/>
         <Button
             Grid.Row="6"
             Grid.ColumnSpan="2"
             Text="Route"
             x:Name="RouteBtn"
-            IsEnabled="False"
+            Command="{Binding RouteCommand}"
             Clicked="OnRouteClicked"
             HorizontalOptions="Fill"/>
         <mapsui:MapControl
             Grid.Row="7"
             Grid.ColumnSpan="2"
-            x:Name="MapControl" />
+            x:Name="MapControl"
+            Map="{Binding Map}"/>
         <Label
             Grid.Row="8"
             Grid.Column="0"
@@ -80,12 +81,14 @@
             Grid.Row="8"
             Grid.Column="1"
             x:Name="DistanceToDestLabel"
+            Text="{Binding DistToDestText}"
             FontSize="14"
             HorizontalOptions="End"/>
         <Label
             Grid.Row="9"
             Grid.Column="1"
             x:Name="TimeToDestLabel"
+            Text="{Binding TimeToDestText}"
             FontSize="14"
             HorizontalOptions="End"/>
         <Button
@@ -95,6 +98,7 @@
             x:Name="DriveBtn"
             IsEnabled="False"
             Clicked="OnDriveClicked"
+            Command="{Binding DriveCommand}"
             HorizontalOptions="Start"
             WidthRequest="120"/>
         <Button
@@ -104,6 +108,7 @@
             x:Name="StopBtn"
             IsEnabled="False"
             Clicked="OnStopClicked"
+            Command="{Binding StopCommand}"
             HorizontalOptions="End"
             WidthRequest="120"/>
     </Grid>

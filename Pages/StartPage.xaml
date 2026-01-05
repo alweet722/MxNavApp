@@ -42,7 +42,15 @@
             StrokeShape="RoundRectangle 10,10,10,10"
             Padding="15,10,15,10"
             IsEnabled="{Binding MyDeviceIsEnabled}"
-            BackgroundColor="{Binding MyDeviceIsSelected, Converter={StaticResource BoolToSelectionColor}}">
+            BackgroundColor="Transparent">
+            <Border.Triggers>
+                <DataTrigger TargetType="Border" Binding="{Binding MyDeviceIsSelected}" Value="True">
+                    <Setter Property="BackgroundColor" Value="{toolkit:AppThemeResource SelectionColor}" />
+                </DataTrigger>
+                <DataTrigger TargetType="Border" Binding="{Binding MyDeviceIsEnabled}" Value="False">
+                    <Setter Property="Opacity" Value="0.4" />
+                </DataTrigger>
+            </Border.Triggers>
             <Border.GestureRecognizers>
                 <TapGestureRecognizer
                     Command="{Binding SelectMyDeviceCommand}"/>
@@ -52,8 +60,14 @@
                 Text="{Binding MyDevice.Name}" 
                 FontAttributes="Bold"
                 FontSize="16"
-                TextColor="{Binding MyDeviceIsSelected, Converter={StaticResource BoolToTextColor}}"
-                VerticalOptions="Center"/>
+                TextColor="{toolkit:AppThemeResource TextColor}"
+                VerticalOptions="Center">
+                <Label.Triggers>
+                    <DataTrigger TargetType="Label" Binding="{Binding MyDeviceIsSelected}" Value="True">
+                        <Setter Property="TextColor" Value="{toolkit:AppThemeResource TextColorSelected}" />
+                    </DataTrigger>
+                </Label.Triggers>
+            </Label>
         </Border>
         <BoxView
             Grid.Row="2"
