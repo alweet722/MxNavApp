@@ -26,7 +26,12 @@ public class RoutePageViewModel : INotifyPropertyChanged
     readonly OffRouteDetector offRoute = new();
     readonly NavState navState = new();
 
-    MemoryLayer? pinLayer;
+    Dictionary<PointType, MemoryLayer?> pointLayers = new()
+    {
+        {PointType.Start, null},
+        {PointType.Destination, null }
+    };
+
     MemoryLayer? routeLayer;
     MyLocationLayer? myLocation;
 
@@ -47,7 +52,6 @@ public class RoutePageViewModel : INotifyPropertyChanged
             if (isRouting == value) return;
             isRouting = value;
             OnPropertyChanged(nameof(IsRouting));
-            ((Command)RouteCommand).ChangeCanExecute();
         }
     }
 
@@ -60,7 +64,6 @@ public class RoutePageViewModel : INotifyPropertyChanged
             if (isDriving == value) return;
             isDriving = value;
             OnPropertyChanged(nameof(IsDriving));
-            ((Command)DriveCommand).ChangeCanExecute();
         }
     }
 
@@ -145,7 +148,6 @@ public class RoutePageViewModel : INotifyPropertyChanged
             if (startLocation == value) return;
             startLocation = value;
             OnPropertyChanged(nameof(StartLocation));
-            ((Command)RouteCommand).ChangeCanExecute();
         }
     }
 
@@ -158,7 +160,6 @@ public class RoutePageViewModel : INotifyPropertyChanged
             if (destLocation == value) return;
             destLocation = value;
             OnPropertyChanged(nameof(DestLocation));
-            ((Command)RouteCommand).ChangeCanExecute();
         }
     }
 
@@ -169,9 +170,11 @@ public class RoutePageViewModel : INotifyPropertyChanged
 
     public ICommand StartAddressCompletedCommand { get; }
     public ICommand DestAddressCompletedCommand { get; }
+    public ICommand UseMyLocationCommand { get; }
     public ICommand RouteCommand { get; }
     public ICommand DriveCommand { get; }
     public ICommand StopCommand { get; }
+    public ICommand BackButtonCommand { get; }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     void OnPropertyChanged(string n) => PropertyChanged?.Invoke(this, new(n));
@@ -181,13 +184,15 @@ public class RoutePageViewModel : INotifyPropertyChanged
         this.nav = nav;
         this.bleSender = bleSender;
 
-        StartAddressCompletedCommand = new Command(async () => GeocodeAddressAsync(StartAddressText, PointType.Start));
+        StartAddressCompletedCommand = new Command(async () => await GeocodeAddressAsync(StartAddressText, PointType.Start));
 
-        DestAddressCompletedCommand = new Command(async () => GeocodeAddressAsync(DestAddressText, PointType.Destination));
+        DestAddressCompletedCommand = new Command(async () => await GeocodeAddressAsync(DestAddressText, PointType.Destination));
+
+        UseMyLocationCommand = new Command(async () => await GetCurrentLocationAsync());
 
         RouteCommand = new Command(
             execute: async () => await RouteAsync(),
-            canExecute: () => StartLocation != (0, 0) && DestLocation != (0, 0) && !IsRouting
+            canExecute: () => StartLocation != (0, 0) && DestLocation != (0, 0) && !IsRouting && !IsDriving
             );
 
         DriveCommand = new Command(
@@ -199,6 +204,19 @@ public class RoutePageViewModel : INotifyPropertyChanged
             execute: async () => await StopDriveAsync(),
             canExecute: () => IsDriving
             );
+
+        BackButtonCommand = new Command(async () =>
+        {
+            if (IsDriving)
+            {
+                if (!await MauiAlertService.ShowAlertAsync("Navigation", "Do you want to stop the navigation?", "Yes", "No"))
+                { return; }
+            }
+
+            await StopDriveAsync();
+            await Shell.Current.GoToAsync("..");
+            return;
+        });
 
         Map.Layers.Add(OpenStreetMap.CreateTileLayer());
 
@@ -219,6 +237,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(IsRouting));
         OnPropertyChanged(nameof(IsDriving));
 
+        ((Command)RouteCommand).ChangeCanExecute();
         ((Command)DriveCommand).ChangeCanExecute();
         ((Command)StopCommand).ChangeCanExecute();
     }
@@ -233,8 +252,34 @@ public class RoutePageViewModel : INotifyPropertyChanged
         });
     }
 
-    private async void GeocodeAddressAsync(string? address, PointType pointType)
+    private async Task GetCurrentLocationAsync()
     {
+        routeLayer?.Features = [];
+        Map.Refresh();
+
+        using CancellationTokenSource cts = new(TimeSpan.FromSeconds(10));
+        var location = await Geolocation.Default.GetLocationAsync(new GeolocationRequest
+        {
+            DesiredAccuracy = GeolocationAccuracy.High,
+            Timeout = TimeSpan.FromSeconds(10)
+        },
+        cts.Token);
+
+        if (location == null)
+        { return; }
+
+        StartLocation = navState.Start = (location.Latitude, location.Longitude);
+        ShowPointOnMap(PointType.Start, location.Latitude, location.Longitude);
+
+        StartAddressText = $"{location.Latitude:F6}°, {location.Longitude:F6}°";
+        NotifyUi();
+    }
+
+    private async Task GeocodeAddressAsync(string? address, PointType pointType)
+    {
+        routeLayer?.Features = [];
+        Map.Refresh();
+
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(10));
         if (string.IsNullOrEmpty(address))
         { return; }
@@ -255,7 +300,9 @@ public class RoutePageViewModel : INotifyPropertyChanged
                 StartAddressText = geocode.Value.label;
                 ShowPointOnMap(PointType.Start, geocode.Value.lat, geocode.Value.lon);
                 break;
-        };
+        }
+        ;
+        NotifyUi();
     }
 
     private void ShowPointOnMap(PointType type, double lat, double lon)
@@ -275,24 +322,20 @@ public class RoutePageViewModel : INotifyPropertyChanged
             Fill = new(color)
         });
 
-        if (pinLayer == null)
+        if (pointLayers[type] == null)
         {
-            pinLayer = new()
+            pointLayers[type] = new()
             {
-                Name = "PinLayer",
+                Name = type.ToString(),
                 Features = new[] { feature }
             };
+            Map.Layers.Add(pointLayers[type]!);
         }
         else
         {
-            if (pinLayer.Features == null)
-            { pinLayer.Features = new[] { feature }; }
-            else
-            { pinLayer.Features = pinLayer.Features.Append(feature); }
+            MemoryLayer layer = pointLayers[type]!;
+            layer.Features = new[] { feature };
         }
-
-        if (!Map.Layers.Contains(pinLayer))
-        { Map.Layers.Add(pinLayer); }
 
         Map.Navigator.CenterOnAndZoomTo(point.ToMPoint(), 1, duration: 1000, easing: Mapsui.Animations.Easing.SinInOut);
 

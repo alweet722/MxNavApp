@@ -28,7 +28,7 @@ internal class AddressGeocoder
         { res = await client.SendAsync(req, ct); }
         catch (Exception)
         {
-            await MauiAlertService.ShowAlertAsync("Geocoding", "Server not available");
+            await MauiAlertService.ShowAlertAsync("Geocoding", "Server not available.");
             return null;
         }
 
@@ -44,20 +44,20 @@ internal class AddressGeocoder
         OrsGeocodingResponse? geodata = JsonSerializer.Deserialize<OrsGeocodingResponse>(json);
         if (geodata == null)
         {
-            await MauiAlertService.ShowAlertAsync("Geocoding", "No matches found");
+            await MauiAlertService.ShowAlertAsync("Geocoding", "No matches found.");
             return null;
         }
 
         OrsGeocodingFeature? feature = geodata.features[0];
         if (feature == null)
         {
-            await MauiAlertService.ShowAlertAsync("Geocoding", "No matches found");
+            await MauiAlertService.ShowAlertAsync("Geocoding", "No matches found.");
             return null;
         }
 
         if (feature.geometry.coordinates == null || feature.geometry.coordinates.Length < 2)
         {
-            await MauiAlertService.ShowAlertAsync("Geocoding", "No matches found");
+            await MauiAlertService.ShowAlertAsync("Geocoding", "No matches found.");
             return null;
         }
 

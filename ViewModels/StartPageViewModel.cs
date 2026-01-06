@@ -65,6 +65,19 @@ public class StartPageViewModel : INotifyPropertyChanged
         }
     }
 
+    bool isConnecting;
+    public bool IsConnecting
+    {
+        get => isConnecting;
+        set
+        {
+            if (isConnecting == value) return;
+            isConnecting = value;
+            OnPropertyChanged(nameof(IsConnecting));
+            ((Command)ToggleConnectCommand).ChangeCanExecute();
+        }
+    }
+
     public bool MyDeviceIsEnabled => MyDevice?.Peripheral != null;
     public string ConnectionStatusText => bleSender.ConnectedDevice?.Name ?? "Disconnected";
     public string ConnectButtonText => bleSender.ConnectedDevice != null ? "Disconnect" : "Connect";
@@ -111,7 +124,7 @@ public class StartPageViewModel : INotifyPropertyChanged
 
         ToggleConnectCommand = new Command(
             execute: async () => await ToggleConnectAsync(),
-            canExecute: () => SelectedForConnect?.Peripheral != null || bleSender.ConnectedDevice != null
+            canExecute: () => (SelectedForConnect?.Peripheral != null || bleSender.ConnectedDevice != null) && !IsConnecting
             );
 
         GoToRouteCommand = new Command(async () =>
@@ -145,6 +158,7 @@ public class StartPageViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(ConnectionStatusText));
         OnPropertyChanged(nameof(ConnectButtonText));
         OnPropertyChanged(nameof(CanGoNext));
+
         ((Command)ToggleConnectCommand).ChangeCanExecute();
     }
 
@@ -161,7 +175,7 @@ public class StartPageViewModel : INotifyPropertyChanged
             if (access != Shiny.AccessState.Available)
             {
                 IsScanning = false;
-                await MauiAlertService.ShowAlertAsync("BLE", $"No access: {access}");
+                await MauiAlertService.ShowAlertAsync("BLE", $"No access: {access}.");
                 return;
             }
 
@@ -196,15 +210,17 @@ public class StartPageViewModel : INotifyPropertyChanged
             return;
         }
 
-        DeviceData? dev = SelectedForConnect;
-        if (dev?.Peripheral == null)
+        if (SelectedForConnect?.Peripheral == null)
         { return; }
 
-        bool status = await bleSender.ConnectAndCacheCharacteristic(dev.Peripheral);
+        IsConnecting = true;
+        bool status = await bleSender.ConnectAndCacheCharacteristic(SelectedForConnect.Peripheral);
 
         if (!status)
         {
-            await MauiAlertService.ShowAlertAsync("BLE", "Connection attempt failed");
+            IsConnecting = false;
+            MyDevice = new(0, "N/A", fav);
+            MyDeviceIsSelected = false;
             NotifyConnectionUi();
             return;
         }
@@ -213,6 +229,7 @@ public class StartPageViewModel : INotifyPropertyChanged
         fav = bleSender.ConnectedDevice?.Name ?? fav;
 
         MyDeviceIsSelected = false;
+        IsConnecting = false;
         SelectedFoundDevice = null;
 
         NotifyConnectionUi();

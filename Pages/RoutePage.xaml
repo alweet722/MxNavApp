@@ -1,18 +1,23 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage 
-    x:Name="RoutePage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:mapsui="clr-namespace:Mapsui.UI.Maui;assembly=Mapsui.UI.Maui"
+    xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
     x:Class="NBNavApp.RoutePage"
     xmlns:vm="clr-namespace:NBNavApp.ViewModels"
-    Title="Route">
-    
+    Title="Route"
+    HideSoftInputOnTapped="True">
+
+    <Shell.BackButtonBehavior>
+        <BackButtonBehavior Command="{Binding BackButtonCommand}"/>
+    </Shell.BackButtonBehavior>
+
     <Grid 
         Padding="30,25,30,25" 
         RowSpacing="10"
         RowDefinitions="30,50,30,50,30,30,50,*,20,20,50" 
-        ColumnDefinitions="145,*" 
+        ColumnDefinitions="290,*" 
         HorizontalOptions="Fill">
         <Label 
             Grid.Row="0"
@@ -21,11 +26,23 @@
             FontSize="Medium" />
         <Entry 
             Grid.Row="1"
-            Grid.ColumnSpan="2"
+            Grid.Column="0"
             Placeholder="Start address or coordinates"
             FontSize="18"
+            ClearButtonVisibility="WhileEditing"
             Text="{Binding StartAddressText, Mode=TwoWay}"
             ReturnCommand="{Binding StartAddressCompletedCommand}"/>
+        <ImageButton
+            Grid.Row="1"
+            Grid.Column="1"
+            BorderColor="{StaticResource Secondary}"
+            BorderWidth="2"
+            BackgroundColor="Transparent"
+            CornerRadius="10"
+            WidthRequest="50"
+            Source="{AppThemeBinding Light=location_light.png, Dark=location_dark.png}"
+            HorizontalOptions="End"
+            Command="{Binding UseMyLocationCommand}"/>
         <Label 
             Grid.Row="2"
             Grid.ColumnSpan="2"
@@ -36,6 +53,7 @@
             Grid.ColumnSpan="2"
             Placeholder="Destination address or coordinates"
             FontSize="18"
+            ClearButtonVisibility="WhileEditing"
             Text="{Binding DestAddressText, Mode=TwoWay}"
             ReturnCommand="{Binding DestAddressCompletedCommand}"/>
         <Label
@@ -64,6 +82,14 @@
             Text="Route"
             Command="{Binding RouteCommand}"
             HorizontalOptions="Fill"/>
+        <ActivityIndicator
+            Grid.Row="6"
+            Grid.ColumnSpan="2"
+            Color="{toolkit:AppThemeResource PrimaryColor}"
+            IsRunning="{Binding IsRouting}"
+            IsVisible="{Binding IsRouting}"
+            HorizontalOptions="Center"
+            VerticalOptions="Center"/>
         <mapsui:MapControl
             Grid.Row="7"
             Grid.ColumnSpan="2"

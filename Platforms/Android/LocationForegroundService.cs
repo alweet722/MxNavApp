@@ -123,7 +123,7 @@ public class LocationForegroundService : Service
 
         pendingIntent ??= GetLocationPendingIntent();
 
-        var req = new LocationRequest.Builder(Priority.PriorityHighAccuracy, 5000)
+        var req = new LocationRequest.Builder(Priority.PriorityHighAccuracy, 2000)
             .SetMinUpdateIntervalMillis(2000)
             .SetWaitForAccurateLocation(false)
             .Build();

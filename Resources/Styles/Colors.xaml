@@ -31,6 +31,7 @@
     <Color x:Key="Gray900">#212121</Color>
     <Color x:Key="Gray950">#141414</Color>
 
+    <toolkit:AppThemeColor Light="{StaticResource Primary}" Dark="{StaticResource PrimaryDark}" x:Key="PrimaryColor" />
     <toolkit:AppThemeColor Light="{StaticResource Selection}" Dark="{StaticResource DarkSelection}" x:Key="SelectionColor" />
     <toolkit:AppThemeColor Light="{StaticResource Black}" Dark="{StaticResource White}" x:Key="TextColor" />
     <toolkit:AppThemeColor Light="{StaticResource White}" Dark="{StaticResource Black}" x:Key="TextColorSelected" />

@@ -28,7 +28,7 @@ public class BleSender
 
         if (BleManager.IsScanning)
         {
-            await MauiAlertService.ShowAlertAsync("BLE", "Another scan in progress");
+            await MauiAlertService.ShowAlertAsync("BLE", "Another scan already in progress.");
             return peripherals;
         }
 
@@ -67,13 +67,22 @@ public class BleSender
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(5));
         try
         { await ConnectedDevice.ConnectAsync(null, cts.Token); }
-        catch (OperationCanceledException)
+        catch (TaskCanceledException)
         {
-            await MauiAlertService.ShowAlertAsync("BLE", "Connection timed out");
+            ConnectedDevice = null;
+            await MauiAlertService.ShowAlertAsync("BLE", "Connection timed out.");
             return false;
         }
 
-        navChar = await ConnectedDevice.GetCharacteristicAsync(Constants.SERVICE_UUID, Constants.NAV_UUID, cts.Token);
+        try
+        { navChar = await ConnectedDevice.GetCharacteristicAsync(Constants.SERVICE_UUID, Constants.NAV_UUID, cts.Token); }
+        catch (TaskCanceledException)
+        {
+            ConnectedDevice.CancelConnection();
+            ConnectedDevice = null;
+            await MauiAlertService.ShowAlertAsync("BLE", "Failed to get navigation characteristic.");
+            return false;
+        }
 
         return ConnectionState.IsConnected = true;
     }
@@ -119,7 +128,12 @@ public class DeviceData : INotifyPropertyChanged
     public IPeripheral? Peripheral
     {
         get => peripheral;
-        set { peripheral = value; OnChanged(nameof(Peripheral)); OnChanged(nameof(IsEnabled)); }
+        set
+        {
+            peripheral = value;
+            OnChanged(nameof(Peripheral));
+            OnChanged(nameof(IsEnabled));
+        }
     }
     public string Name { get; }
     public string Id { get; }

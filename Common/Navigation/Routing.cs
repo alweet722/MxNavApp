@@ -114,7 +114,7 @@ public class RouteNavigation
         List<double[]>? coordinates = routingResponse?.features?[0].geometry?.coordinates;
         if (coordinates == null || coordinates.Count == 0)
         {
-            MauiAlertService.ShowAlertAsync("Routing", "Route contains no waypoints");
+            MauiAlertService.ShowAlertAsync("Routing", "Route contains no waypoints.");
             return null;
         }
 

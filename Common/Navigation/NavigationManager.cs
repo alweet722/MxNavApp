@@ -14,7 +14,7 @@ public class NavigationManager
     public async Task StartNavigationAsync()
     {
         if (!bleState.IsConnected)
-        { await MauiAlertService.ShowAlertAsync("BLE", "Connection lost"); }
+        { await MauiAlertService.ShowAlertAsync("BLE", "Connection lost."); }
 
         if (IsNavigating)
         { return; }

@@ -152,6 +152,14 @@
             Command="{Binding ToggleConnectCommand}"
             WidthRequest="120" 
             HorizontalOptions="End"/>
+        <ActivityIndicator
+            Grid.Row="5"
+            Grid.Column="1"
+            Color="{toolkit:AppThemeResource PrimaryColor}"
+            IsRunning="{Binding IsConnecting}"
+            IsVisible="{Binding IsConnecting}"
+            HorizontalOptions="Start"
+            VerticalOptions="Center"/>
         <Button
             Grid.Row="6"
             Grid.Column="1"
