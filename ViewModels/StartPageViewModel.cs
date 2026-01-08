@@ -78,7 +78,7 @@ public class StartPageViewModel : INotifyPropertyChanged
         }
     }
 
-    public bool MyDeviceIsEnabled => MyDevice?.Peripheral != null;
+    public bool MyDeviceIsEnabled => MyDevice?.Peripheral != null && bleSender.ConnectedDevice == null;
     public string ConnectionStatusText => bleSender.ConnectedDevice?.Name ?? "Disconnected";
     public string ConnectButtonText => bleSender.ConnectedDevice != null ? "Disconnect" : "Connect";
     public bool CanGoNext => bleSender.ConnectedDevice != null;
@@ -150,11 +150,12 @@ public class StartPageViewModel : INotifyPropertyChanged
         await CheckAndRequestNotificationPermission();
 
         await InitialScanAsync();
-        NotifyConnectionUi();
+        NotifyUi();
     }
 
-    private void NotifyConnectionUi()
+    private void NotifyUi()
     {
+        OnPropertyChanged(nameof(MyDeviceIsEnabled));
         OnPropertyChanged(nameof(ConnectionStatusText));
         OnPropertyChanged(nameof(ConnectButtonText));
         OnPropertyChanged(nameof(CanGoNext));
@@ -206,7 +207,9 @@ public class StartPageViewModel : INotifyPropertyChanged
             SelectedFoundDevice = null;
             MyDeviceIsSelected = false;
 
-            NotifyConnectionUi();
+            NotifyUi();
+
+            await ScanAsync(2);
             return;
         }
 
@@ -221,7 +224,7 @@ public class StartPageViewModel : INotifyPropertyChanged
             IsConnecting = false;
             MyDevice = new(0, "N/A", fav);
             MyDeviceIsSelected = false;
-            NotifyConnectionUi();
+            NotifyUi();
             return;
         }
 
@@ -232,7 +235,7 @@ public class StartPageViewModel : INotifyPropertyChanged
         IsConnecting = false;
         SelectedFoundDevice = null;
 
-        NotifyConnectionUi();
+        NotifyUi();
     }
 
     private static async Task<PermissionStatus> CheckAndRequestLocationPermission()

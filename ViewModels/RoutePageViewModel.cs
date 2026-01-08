@@ -43,6 +43,8 @@ public class RoutePageViewModel : INotifyPropertyChanged
     double[]? totalDist;
     double[]? segLen;
 
+    bool isStopping;
+
     bool isRouting;
     public bool IsRouting
     {
@@ -230,6 +232,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
         LocationBus.LocationUpdated += OnLocationUpdated;
 #endif
         OffRouteDetector.GoneOffRoute += OnGoneOffRoute;
+        OffRouteDetector.ReturnedOnRoute += OnReturnedOnRoute;
     }
 
     public void NotifyUi()
@@ -250,6 +253,11 @@ public class RoutePageViewModel : INotifyPropertyChanged
             byte[] payload = BleSender.BuildNavPacket(0, 0, 0, (byte)navState.RouteState);
             await bleSender.WriteCharacteristicAsync(payload);
         });
+    }
+
+    private void OnReturnedOnRoute(object? sender, EventArgs e)
+    {
+        navState.RouteState = RouteState.NORMAL;
     }
 
     private async Task GetCurrentLocationAsync()
@@ -386,6 +394,8 @@ public class RoutePageViewModel : INotifyPropertyChanged
     {
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(15));
 
+        avoidFeatures = new();
+
         if (AvoidHighways)
         { avoidFeatures.Add(RouteNavigation.AvoidFeatures.highways.ToString()); }
         if (AvoidToll)
@@ -454,18 +464,33 @@ public class RoutePageViewModel : INotifyPropertyChanged
 
     private async Task StopDriveAsync()
     {
-        if (route != null)
-        { ShowRoute(route); }
-
-        if (myLocation != null)
-        { Map.Layers.Remove(myLocation); }
-
         nav.StopNavigation();
-
-        await bleSender.WriteCharacteristicAsync(new byte[] { 0x00 });
-
         IsDriving = false;
+
+        if (routeLayer != null)
+        { Map.Layers.Remove(routeLayer); }
+
+        if (pointLayers != null)
+        {
+            foreach (var layer in pointLayers.Values)
+            {
+                if (layer != null)
+                { Map.Layers.Remove(layer); }
+            }
+        }
+
+        StartAddressText = string.Empty;
+        DestAddressText = string.Empty;
+        TimeToDestText = string.Empty;
+        DistToDestText = string.Empty;
+
+        StartLocation = (0, 0);
+        DestLocation = (0, 0);
+
         NotifyUi();
+
+        await Task.Delay(TimeSpan.FromSeconds(5));
+        await bleSender.WriteCharacteristicAsync(new byte[] { 0x00 });
     }
 
 #if ANDROID31_0_OR_GREATER
@@ -522,10 +547,32 @@ public class RoutePageViewModel : INotifyPropertyChanged
                     break;
             }
 
+            var remaining = Math.Max(0, totalDist[^1] - s);
+            var tol = Math.Max(10.0, location.Accuracy);
+
+            if (isStopping)
+            { return; }
+            if (remaining <= tol)
+            {
+                isStopping = true;
+                payload = BleSender.BuildNavPacket(
+                    (ushort)(preparedSteps?.Count - 1 ?? 0),
+                    (byte)Instruction.END,
+                    0,
+                    (byte)RouteState.NORMAL);
+
+                await bleSender.WriteCharacteristicAsync(payload);
+
+                await StopDriveAsync();
+                isStopping = false;
+                return;
+            }
+
             var (idx, nextIdx, distToNext) = RouteNavigation.ComputeStepAndDistance(s, preparedSteps, navState);
             var nextStep = preparedSteps[nextIdx].type;
 
             payload = BleSender.BuildNavPacket((ushort)nextIdx, (byte)nextStep, (ushort)Math.Round(distToNext), (byte)RouteState.NORMAL);
+
             await bleSender.WriteCharacteristicAsync(payload);
         });
     }

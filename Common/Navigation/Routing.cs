@@ -19,7 +19,8 @@ public enum Instruction
     GOAL,
     DEPART,
     KEEP_LEFT,
-    KEEP_RIGHT
+    KEEP_RIGHT,
+    END
 };
 
 public enum RouteState
