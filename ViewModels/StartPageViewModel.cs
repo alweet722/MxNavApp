@@ -90,6 +90,7 @@ public class StartPageViewModel : INotifyPropertyChanged
     public ICommand ToggleConnectCommand { get; }
     public ICommand GoToRouteCommand { get; }
     public ICommand ClearSelectionCommand { get; }
+    public ICommand CleanupCommand { get; }
 
 
     string fav;
@@ -142,6 +143,11 @@ public class StartPageViewModel : INotifyPropertyChanged
             SelectedFoundDevice = null;
             MyDeviceIsSelected = false;
         });
+
+        CleanupCommand = new Command(async () =>
+        {
+            await bleSender.Disconnect();
+        });
     }
 
     private async Task OnAppearingAsync()
@@ -155,6 +161,7 @@ public class StartPageViewModel : INotifyPropertyChanged
 
     private void NotifyUi()
     {
+        OnPropertyChanged(nameof(MyDevice));
         OnPropertyChanged(nameof(MyDeviceIsEnabled));
         OnPropertyChanged(nameof(ConnectionStatusText));
         OnPropertyChanged(nameof(ConnectButtonText));
@@ -192,6 +199,8 @@ public class StartPageViewModel : INotifyPropertyChanged
                 { MyDevice = found; }
                 else
                 { MyDevice = new(0, "N/A", fav); }
+
+                NotifyUi();
             }
         }
         finally

@@ -119,6 +119,8 @@ public class BleSender
         ConnectedDevice?.CancelConnection();
         ConnectedDevice = null;
         ConnectionState.IsConnected = false;
+        scanSub?.Dispose();
+        scanSub = null;
     }
 }
 
