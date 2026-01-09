@@ -97,10 +97,13 @@ public class BleSender
         if (navChar == null)
         { return; }
 
-        await ConnectedDevice.WriteCharacteristicAsync(navChar, payload, false, cts.Token);
+        try
+        { await ConnectedDevice.WriteCharacteristicAsync(navChar, payload, false, cts.Token); }
+        catch (TaskCanceledException)
+        { await MauiAlertService.ShowAlertAsync("BLE", "Write operation timed out."); }
     }
 
-    public static byte[] BuildNavPacket(ushort seq, byte type, ushort distMeters, byte flag)
+    public static byte[] BuildNavPacket(ushort seq, byte type, uint distMeters, byte exit, byte flag)
     {
         byte[] data =
         [
@@ -109,7 +112,10 @@ public class BleSender
             type,
             (byte)(distMeters & 0xFF),
             (byte)((distMeters >> 8) & 0xFF),
-            flag,
+            (byte)((distMeters >> 16) & 0xFF),
+            (byte)((distMeters >> 24) & 0xFF),
+            exit,
+            flag
         ];
         return data;
     }

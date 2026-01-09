@@ -6,6 +6,7 @@ using Mapsui.Projections;
 using Mapsui.Styles;
 using Mapsui.Tiling;
 using Mapsui.UI.Maui;
+using NBNavApp.Common.Navigation;
 using NetTopologySuite.Geometries;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -24,6 +25,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
     readonly NavigationManager nav;
     readonly BleSender bleSender;
     readonly OffRouteDetector offRoute = new();
+    readonly WrongWayDetector wrongWayDetector = new();
     readonly NavState navState = new();
 
     Dictionary<PointType, MemoryLayer?> pointLayers = new()
@@ -44,6 +46,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
     double[]? segLen;
 
     bool isStopping;
+    const double lookahead = 40.0;
 
     bool isRouting;
     public bool IsRouting
@@ -250,7 +253,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
         MainThread.BeginInvokeOnMainThread(async () =>
         {
             navState.RouteState = RouteState.OFF_ROUTE;
-            byte[] payload = BleSender.BuildNavPacket(0, 0, 0, (byte)navState.RouteState);
+            byte[] payload = BleSender.BuildNavPacket(0, 0, 0, 0, (byte)navState.RouteState);
             await bleSender.WriteCharacteristicAsync(payload);
         });
     }
@@ -265,13 +268,22 @@ public class RoutePageViewModel : INotifyPropertyChanged
         routeLayer?.Features = [];
         Map.Refresh();
 
+        Microsoft.Maui.Devices.Sensors.Location? location;
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(10));
-        var location = await Geolocation.Default.GetLocationAsync(new GeolocationRequest
+        try
         {
-            DesiredAccuracy = GeolocationAccuracy.High,
-            Timeout = TimeSpan.FromSeconds(10)
-        },
-        cts.Token);
+            location = await Geolocation.Default.GetLocationAsync(new GeolocationRequest
+            {
+                DesiredAccuracy = GeolocationAccuracy.High,
+                Timeout = TimeSpan.FromSeconds(10)
+            },
+               cts.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            await MauiAlertService.ShowAlertAsync("Location", "Could not get current location.");
+            return;
+        }
 
         if (location == null)
         { return; }
@@ -433,7 +445,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
         var steps = RouteNavigation.GetRoutingSteps(routingResponse);
         (totalDist, segLen) = RouteNavigation.BuildTotalDist(route);
         preparedSteps = RouteNavigation.PrepareSteps(steps, totalDist);
-        routeXY = RouteNavigation.ToMercator(route);
+        routeXY = GeoFunctions.ToMercator(route);
 
         TimeSpan timeToDestination = TimeSpan.FromSeconds(RouteNavigation.GetTimeToDest(routingResponse));
         DistToDestText = $"{RouteNavigation.GetDistance(routingResponse) / 1000:F1} km";
@@ -468,14 +480,20 @@ public class RoutePageViewModel : INotifyPropertyChanged
         IsDriving = false;
 
         if (routeLayer != null)
-        { Map.Layers.Remove(routeLayer); }
+        {
+            Map.Layers.Remove(routeLayer);
+            routeLayer = null;
+        }
 
         if (pointLayers != null)
         {
-            foreach (var layer in pointLayers.Values)
+            foreach (var type in pointLayers.Keys.ToList())
             {
-                if (layer != null)
-                { Map.Layers.Remove(layer); }
+                if (pointLayers[type] != null)
+                {
+                    Map.Layers.Remove(pointLayers[type]);
+                    pointLayers[type] = null;
+                }
             }
         }
 
@@ -510,11 +528,32 @@ public class RoutePageViewModel : INotifyPropertyChanged
 
             var (s, dPerp) = RouteNavigation.MatchRouteToNextStep((currentLocation.x, currentLocation.y), routeXY, totalDist, segLen, preparedSteps, navState);
 
+            var (idx, nextIdx, distToNext, exit) = RouteNavigation.ComputeStepAndDistance(s, preparedSteps, navState);
+            var nextStep = preparedSteps[nextIdx].type;
+
+            var pNow = RouteNavigation.PointAtS(route, totalDist, segLen, s);
+            var pFwd = RouteNavigation.PointAtS(route, totalDist, segLen, s + lookahead);
+
+            double bearing = GeoFunctions.BearingDegrees(pNow, pFwd);
+            double? heading = location.HasBearing ? location.Bearing : null;
+            if (heading is null)
+            { return; }
+
+            double diff = GeoFunctions.AngleDiffDeg(bearing, heading.Value);
+
+            bool wrongWay = wrongWayDetector.Update(location.Speed, dPerp, diff, DateTime.UtcNow);
+
             bool reroute = offRoute.Update(dPerp, location.Accuracy, DateTime.UtcNow, out string reason);
 
             switch (navState.RouteState)
             {
                 case RouteState.NORMAL:
+                    if (wrongWay)
+                    {
+                        payload = BleSender.BuildNavPacket((ushort)nextIdx, (byte)Instruction.U_TURN, uint.MaxValue, (byte)exit, (byte)RouteState.NORMAL);
+                        await bleSender.WriteCharacteristicAsync(payload);
+                        return;
+                    }
                     break;
                 case RouteState.OFF_ROUTE:
                     if (reroute)
@@ -523,7 +562,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
                 case RouteState.REROUTE:
                     navState.Start = (location.Latitude, location.Longitude);
                     // Debug.WriteLine(reason);
-                    payload = BleSender.BuildNavPacket(0, 0, 0, (byte)RouteState.REROUTE);
+                    payload = BleSender.BuildNavPacket(0, 0, 0, 0, (byte)RouteState.REROUTE);
                     await bleSender.WriteCharacteristicAsync(payload);
 
                     try
@@ -547,8 +586,8 @@ public class RoutePageViewModel : INotifyPropertyChanged
                     break;
             }
 
-            var remaining = Math.Max(0, totalDist[^1] - s);
-            var tol = Math.Max(10.0, location.Accuracy);
+            double remaining = Math.Max(0, totalDist[^1] - s);
+            double tol = Math.Max(10.0, location.Accuracy);
 
             if (isStopping)
             { return; }
@@ -559,6 +598,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
                     (ushort)(preparedSteps?.Count - 1 ?? 0),
                     (byte)Instruction.END,
                     0,
+                    0,
                     (byte)RouteState.NORMAL);
 
                 await bleSender.WriteCharacteristicAsync(payload);
@@ -568,10 +608,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
                 return;
             }
 
-            var (idx, nextIdx, distToNext) = RouteNavigation.ComputeStepAndDistance(s, preparedSteps, navState);
-            var nextStep = preparedSteps[nextIdx].type;
-
-            payload = BleSender.BuildNavPacket((ushort)nextIdx, (byte)nextStep, (ushort)Math.Round(distToNext), (byte)RouteState.NORMAL);
+            payload = BleSender.BuildNavPacket((ushort)nextIdx, (byte)nextStep, (uint)distToNext, (byte)exit, (byte)RouteState.NORMAL);
 
             await bleSender.WriteCharacteristicAsync(payload);
         });
@@ -596,7 +633,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
         var steps = RouteNavigation.GetRoutingSteps(res);
         (totalDist, segLen) = RouteNavigation.BuildTotalDist(route);
         preparedSteps = RouteNavigation.PrepareSteps(steps, totalDist);
-        routeXY = RouteNavigation.ToMercator(route);
+        routeXY = GeoFunctions.ToMercator(route);
 
         navState.CurrentStepIndex = 0;
         navState.LastSegIndex = 0;

@@ -1,8 +1,7 @@
-﻿using Mapsui.Projections;
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 
-namespace NBNavApp;
+namespace NBNavApp.Common.Navigation;
 
 public enum Instruction
 {
@@ -39,7 +38,7 @@ public class NavState
     public RouteState RouteState { get; set; } = RouteState.NORMAL;
 }
 
-public record PreparedStep(int index, Instruction type, string? instruction, int[] way_points, double[] coords);
+public record PreparedStep(int index, Instruction type, string? instruction, int? exit_number, int[] way_points, double[] coords);
 
 public class RouteNavigation
 {
@@ -52,7 +51,7 @@ public class RouteNavigation
     }
 
     public record OrsRoutingProperties(List<OrsRoutingSegment> segments, OrsRoutingSummary summary);
-    public record OrsRoutingStep(double distance, Instruction type, string? instruction, string? name, int[] way_points);
+    public record OrsRoutingStep(double distance, Instruction type, string? instruction, string? name, int? exit_number, int[] way_points);
     public record OrsRoutingSegment(double distance, double duration, List<OrsRoutingStep> steps);
     public record OrsRoutingSummary(double distance, double duration);
     public record OrsRoutingGeometry(List<double[]> coordinates);
@@ -131,24 +130,6 @@ public class RouteNavigation
     public static List<OrsRoutingStep> GetRoutingSteps(OrsRoutingResponse routingResponse)
     { return routingResponse.features[0].properties.segments[0].steps; }
 
-    private static double HaversineMeters((double lon, double lat) start, (double lon, double lat) end)
-    {
-        const double EARTH_R = 6371000.0;
-
-        double latStart = start.lat.ToRad();
-        double latEnd = end.lat.ToRad();
-        double dLat = (end.lat - start.lat).ToRad();
-        double dLon = (end.lon - start.lon).ToRad();
-
-        double s = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
-                   Math.Cos(latStart) * Math.Cos(latEnd) *
-                   Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
-
-        double c = 2 * Math.Atan2(Math.Sqrt(s), Math.Sqrt(1 - s));
-
-        return c * EARTH_R;
-    }
-
     public static (double[] dist, double[] seg) BuildTotalDist(List<(double lon, double lat)> pts)
     {
         double[] dist = new double[pts.Count];
@@ -159,7 +140,7 @@ public class RouteNavigation
 
         for (int i = 1; i < pts.Count; ++i)
         {
-            var len = HaversineMeters(pts[i - 1], pts[i]);
+            var len = GeoFunctions.HaversineMeters(pts[i - 1], pts[i]);
             seg[i - 1] = len;
             acc += len;
             dist[i] = acc;
@@ -184,42 +165,12 @@ public class RouteNavigation
                 index: i,
                 type: step.type,
                 instruction: step.instruction,
+                exit_number: step.exit_number,
                 way_points: [start, end],
                 coords: [distances[start], distances[end]]
                 ));
         }
         return preparedSteps;
-    }
-
-    public static List<(double x, double y)> ToMercator(List<(double lon, double lat)> pts)
-    => pts.Select(p =>
-    {
-        var m = SphericalMercator.FromLonLat(p.lon, p.lat);
-        return (m.x, m.y);
-    }).ToList();
-
-    private static (double t, double dPerp) ProjectPointToSegment(
-        double x, double y,
-        double startx, double starty,
-        double endx, double endy)
-    {
-        double vx = endx - startx;
-        double vy = endy - starty;
-        double wx = x - startx;
-        double wy = y - starty;
-
-        double vv = Math.Pow(vx, 2) + Math.Pow(vy, 2);
-        double t = vv <= 1e-9 ? 0 : (wx * vx + wy * vy) / vv;
-        t = Math.Clamp(t, 0, 1);
-
-        double px = startx + t * vx;
-        double py = starty + t * vy;
-
-        double dx = x - px;
-        double dy = y - py;
-        double d = Math.Sqrt(Math.Pow(dx, 2) + Math.Pow(dy, 2));
-
-        return (t, d);
     }
 
     public static (double s, double dPerp) MatchRouteToNextStep(
@@ -246,7 +197,7 @@ public class RouteNavigation
         {
             var a = routeXY[i];
             var b = routeXY[i + 1];
-            var pr = ProjectPointToSegment(posXY.x, posXY.y, a.x, a.y, b.x, b.y);
+            var pr = GeoFunctions.ProjectPointToSegment(posXY.x, posXY.y, a.x, a.y, b.x, b.y);
 
             if (pr.dPerp < bestD)
             {
@@ -263,10 +214,10 @@ public class RouteNavigation
         return (s, bestD);
     }
 
-    public static (int currentStepIndex, int manouverIndex, double dist) ComputeStepAndDistance(double s, List<PreparedStep> steps, NavState state)
+    public static (int currentStepIndex, int manouverIndex, double dist, int exit) ComputeStepAndDistance(double s, List<PreparedStep> steps, NavState state)
     {
         if (steps.Count == 0)
-        { return (0, 0, 0); }
+        { return (0, 0, 0, 0); }
 
         int finalGoalIndex = steps.FindLastIndex(x => x.type == Instruction.GOAL);
         if (finalGoalIndex < 0)
@@ -281,7 +232,7 @@ public class RouteNavigation
         int stepIndex = state.CurrentStepIndex;
 
         if (stepIndex >= finalGoalIndex && steps[finalGoalIndex].type == Instruction.GOAL)
-        { return (finalGoalIndex, finalGoalIndex, 0); }
+        { return (finalGoalIndex, finalGoalIndex, 0, 0); }
 
         int next = Math.Min(stepIndex + 1, steps.Count - 1);
 
@@ -301,11 +252,33 @@ public class RouteNavigation
             break;
         }
 
+
         int manouverIndex = Math.Min(next, finalGoalIndex);
 
         int boundaryIndex = Math.Max(0, manouverIndex - 1);
         double dist = Math.Max(0, steps[boundaryIndex].coords[1] - s);
 
-        return (stepIndex, manouverIndex, dist);
+        int exit = steps[state.CurrentStepIndex].exit_number ?? 0;
+        return (stepIndex, manouverIndex, dist, exit);
+    }
+
+    public static (double lon, double lat) PointAtS(
+        List<(double lon, double lat)> geometry,
+        double[] totalDist,
+        double[] segLen,
+        double s)
+    {
+        s = Math.Clamp(s, 0, totalDist[^1]);
+
+        int i = Array.BinarySearch(totalDist, s);
+        if (i < 0)
+        { i = ~i - 1; }
+        i = Math.Clamp(i, 0, geometry.Count - 2);
+
+        double t = segLen[i] > 1e-6 ? (s - totalDist[i]) / segLen[i] : 0;
+
+        double lon = geometry[i].lon + t * (geometry[i + 1].lon - geometry[i].lon);
+        double lat = geometry[i].lat + t * (geometry[i + 1].lat - geometry[i].lat);
+        return (lon, lat);
     }
 }
