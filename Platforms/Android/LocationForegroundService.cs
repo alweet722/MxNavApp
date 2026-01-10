@@ -1,6 +1,7 @@
 ﻿#if ANDROID31_0_OR_GREATER
 using Android.App;
 using Android.Content;
+using Android.Content.PM;
 using Android.Gms.Location;
 using Android.OS;
 using Android.Util;
@@ -8,7 +9,7 @@ using AndroidX.Core.App;
 
 namespace NBNavApp;
 
-[Service]
+[Service(Exported = false, ForegroundServiceType = ForegroundService.TypeLocation)]
 public class LocationForegroundService : Service
 {
     const int NOTIF_ID = 1001;
@@ -65,7 +66,14 @@ public class LocationForegroundService : Service
             return StartCommandResult.NotSticky;
         }
 
-        StartForeground(NOTIF_ID, BuildNotification("Navigation active"));
+        var notification = BuildNotification("Navigation active");
+
+        ServiceCompat.StartForeground(
+            this,
+            NOTIF_ID,
+            notification,
+            (int)ForegroundService.TypeLocation
+        );
         //AcquireWakeLock();
         StartLocationUpdates();
         return StartCommandResult.NotSticky;

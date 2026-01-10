@@ -144,6 +144,7 @@ public class StartPageViewModel : INotifyPropertyChanged
 
     private async Task OnAppearingAsync()
     {
+        await CheckAndRequestBtPermission();
         await CheckAndRequestLocationPermission();
         await CheckAndRequestNotificationPermission();
 
@@ -265,6 +266,15 @@ public class StartPageViewModel : INotifyPropertyChanged
         if (status == PermissionStatus.Granted)
         { return status; }
         await Permissions.RequestAsync<Permissions.PostNotifications>();
+        return status;
+    }
+
+    private static async Task<PermissionStatus> CheckAndRequestBtPermission()
+    {
+        var status = await Permissions.CheckStatusAsync<Permissions.Bluetooth>();
+        if (status == PermissionStatus.Granted)
+        { return status; }
+        await Permissions.RequestAsync<Permissions.Bluetooth>();
         return status;
     }
 }
