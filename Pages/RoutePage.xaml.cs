@@ -12,16 +12,8 @@ public partial class RoutePage : ContentPage
 
     protected override bool OnBackButtonPressed()
     {
-        if (BindingContext is ViewModels.RoutePageViewModel vm && vm.BackButtonCommand != null)
-        {
-            MainThread.BeginInvokeOnMainThread(() =>
-            {
-                if (vm.BackButtonCommand.CanExecute(null))
-                { vm.BackButtonCommand.Execute(null); }
-            });
-
-            return true;
-        }
+        if (BindingContext is ViewModels.RoutePageViewModel vm)
+        { _ = vm.ReturnToStartPage(); }
 
         return base.OnBackButtonPressed();
     }

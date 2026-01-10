@@ -1,7 +1,6 @@
 ﻿using Shiny.BluetoothLE;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Windows.Input;
 
 namespace NBNavApp.ViewModels;
@@ -90,8 +89,6 @@ public class StartPageViewModel : INotifyPropertyChanged
     public ICommand ToggleConnectCommand { get; }
     public ICommand GoToRouteCommand { get; }
     public ICommand ClearSelectionCommand { get; }
-    public ICommand CleanupCommand { get; }
-
 
     string fav;
 
@@ -142,11 +139,6 @@ public class StartPageViewModel : INotifyPropertyChanged
         {
             SelectedFoundDevice = null;
             MyDeviceIsSelected = false;
-        });
-
-        CleanupCommand = new Command(async () =>
-        {
-            await bleSender.Disconnect();
         });
     }
 
@@ -240,9 +232,20 @@ public class StartPageViewModel : INotifyPropertyChanged
         Preferences.Default.Set(Constants.DISPL_DEV_KEY, bleSender.ConnectedDevice?.Name);
         fav = bleSender.ConnectedDevice?.Name ?? fav;
 
+        MyDevice = new(0, bleSender.ConnectedDevice?.Uuid, fav, bleSender.ConnectedDevice);
+
         MyDeviceIsSelected = false;
         IsConnecting = false;
         SelectedFoundDevice = null;
+
+        NotifyUi();
+    }
+
+    public async Task DisposeAsync()
+    {
+        await bleSender.Disconnect();
+        SelectedFoundDevice = null;
+        MyDeviceIsSelected = false;
 
         NotifyUi();
     }

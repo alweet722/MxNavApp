@@ -5,11 +5,9 @@ using Mapsui.Nts;
 using Mapsui.Projections;
 using Mapsui.Styles;
 using Mapsui.Tiling;
-using Mapsui.UI.Maui;
 using NBNavApp.Common.Navigation;
 using NetTopologySuite.Geometries;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Windows.Input;
 
 namespace NBNavApp.ViewModels;
@@ -179,7 +177,6 @@ public class RoutePageViewModel : INotifyPropertyChanged
     public ICommand RouteCommand { get; }
     public ICommand DriveCommand { get; }
     public ICommand StopCommand { get; }
-    public ICommand BackButtonCommand { get; }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     void OnPropertyChanged(string n) => PropertyChanged?.Invoke(this, new(n));
@@ -210,19 +207,6 @@ public class RoutePageViewModel : INotifyPropertyChanged
             canExecute: () => IsDriving
             );
 
-        BackButtonCommand = new Command(async () =>
-        {
-            if (IsDriving)
-            {
-                if (!await MauiAlertService.ShowAlertAsync("Navigation", "Do you want to stop the navigation?", "Yes", "No"))
-                { return; }
-            }
-
-            await StopDriveAsync();
-            await Shell.Current.GoToAsync("..");
-            return;
-        });
-
         Map.Layers.Add(OpenStreetMap.CreateTileLayer());
 
         (double x, double y) defaultCenter = SphericalMercator.FromLonLat(13.723076680216279, 51.05120761645636);
@@ -246,6 +230,19 @@ public class RoutePageViewModel : INotifyPropertyChanged
         ((Command)RouteCommand).ChangeCanExecute();
         ((Command)DriveCommand).ChangeCanExecute();
         ((Command)StopCommand).ChangeCanExecute();
+    }
+
+    public async Task ReturnToStartPage()
+    {
+        if (IsDriving)
+        {
+            if (!await MauiAlertService.ShowAlertAsync("Navigation", "Do you want to stop the navigation?", "Yes", "No"))
+            { return; }
+        }
+
+        await StopDriveAsync();
+        await Shell.Current.GoToAsync("..");
+        return;
     }
 
     private void OnGoneOffRoute(object? sender, EventArgs e)
