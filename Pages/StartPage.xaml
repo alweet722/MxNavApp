@@ -5,6 +5,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
     x:Class="NBNavApp.StartPage"
+    x:DataType="vm:StartPageViewModel"
+    xmlns:models="clr-namespace:NBNavApp"
     xmlns:vm="clr-namespace:NBNavApp.ViewModels">
 
     <ContentPage.Behaviors>
@@ -102,7 +104,7 @@
                         <LinearItemsLayout Orientation="Vertical" ItemSpacing="10" />
                     </CollectionView.ItemsLayout>
                     <CollectionView.ItemTemplate>
-                        <DataTemplate>
+                        <DataTemplate x:DataType="models:DeviceData">
                             <Border
                                 x:Name="Root"
                                 Padding="10,5,10,5"

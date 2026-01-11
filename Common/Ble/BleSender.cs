@@ -101,6 +101,8 @@ public class BleSender
         { await ConnectedDevice.WriteCharacteristicAsync(navChar, payload, false, cts.Token); }
         catch (TaskCanceledException)
         { await MauiAlertService.ShowAlertAsync("BLE", "Write operation timed out."); }
+        catch (InvalidOperationException)
+        { await MauiAlertService.ShowAlertAsync("BLE", "Connection lost."); }
     }
 
     public static byte[] BuildNavPacket(ushort seq, byte type, uint distMeters, byte exit, byte flag)

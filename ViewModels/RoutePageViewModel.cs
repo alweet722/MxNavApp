@@ -8,6 +8,7 @@ using Mapsui.Tiling;
 using NBNavApp.Common.Navigation;
 using NetTopologySuite.Geometries;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows.Input;
 
 namespace NBNavApp.ViewModels;
@@ -203,7 +204,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
             );
 
         StopCommand = new Command(
-            execute: async () => await StopDriveAsync(),
+            execute: async () => await PauseDriveAsync(),
             canExecute: () => IsDriving
             );
 
@@ -240,9 +241,8 @@ public class RoutePageViewModel : INotifyPropertyChanged
             { return; }
         }
 
-        await StopDriveAsync();
+        await StopDriveAsync(0);
         await Shell.Current.GoToAsync("..");
-        return;
     }
 
     private void OnGoneOffRoute(object? sender, EventArgs e)
@@ -471,7 +471,16 @@ public class RoutePageViewModel : INotifyPropertyChanged
         NotifyUi();
     }
 
-    private async Task StopDriveAsync()
+    private async Task PauseDriveAsync()
+    {
+        nav.StopNavigation();
+        IsDriving = false;
+
+        NotifyUi();
+        await bleSender.WriteCharacteristicAsync(new byte[] { 0x00 });
+    }
+
+    private async Task StopDriveAsync(int delay = 0)
     {
         nav.StopNavigation();
         IsDriving = false;
@@ -494,6 +503,8 @@ public class RoutePageViewModel : INotifyPropertyChanged
             }
         }
 
+        route = null;
+
         StartAddressText = string.Empty;
         DestAddressText = string.Empty;
         TimeToDestText = string.Empty;
@@ -504,7 +515,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
 
         NotifyUi();
 
-        await Task.Delay(TimeSpan.FromSeconds(5));
+        await Task.Delay(TimeSpan.FromSeconds(delay));
         await bleSender.WriteCharacteristicAsync(new byte[] { 0x00 });
     }
 
@@ -515,6 +526,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
         {
             // Debug.WriteLine($"{location.Latitude:F6} {location.Longitude:F6} ±{location.Accuracy}m");
             byte[] payload;
+            bool wrongWay = false;
             CancellationTokenSource cts = new(TimeSpan.FromSeconds(5));
 
             if (myLocation == null)
@@ -533,12 +545,11 @@ public class RoutePageViewModel : INotifyPropertyChanged
 
             double bearing = GeoFunctions.BearingDegrees(pNow, pFwd);
             double? heading = location.HasBearing ? location.Bearing : null;
-            if (heading is null)
-            { return; }
-
-            double diff = GeoFunctions.AngleDiffDeg(bearing, heading.Value);
-
-            bool wrongWay = wrongWayDetector.Update(location.Speed, dPerp, diff, DateTime.UtcNow);
+            if (heading != null)
+            {
+                double diff = GeoFunctions.AngleDiffDeg(bearing, heading.Value);
+                wrongWay = wrongWayDetector.Update(location.Speed, dPerp, diff, DateTime.UtcNow);
+            }
 
             bool reroute = offRoute.Update(dPerp, location.Accuracy, DateTime.UtcNow, out string reason);
 
@@ -600,7 +611,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
 
                 await bleSender.WriteCharacteristicAsync(payload);
 
-                await StopDriveAsync();
+                await StopDriveAsync(5);
                 isStopping = false;
                 return;
             }

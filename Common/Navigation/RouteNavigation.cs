@@ -257,8 +257,8 @@ public class RouteNavigation
 
         int boundaryIndex = Math.Max(0, manouverIndex - 1);
         double dist = Math.Max(0, steps[boundaryIndex].coords[1] - s);
+        int exit = steps[manouverIndex].exit_number ?? 0;
 
-        int exit = steps[state.CurrentStepIndex].exit_number ?? 0;
         return (stepIndex, manouverIndex, dist, exit);
     }
 

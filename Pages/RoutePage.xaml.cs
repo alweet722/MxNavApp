@@ -13,8 +13,14 @@ public partial class RoutePage : ContentPage
     protected override bool OnBackButtonPressed()
     {
         if (BindingContext is ViewModels.RoutePageViewModel vm)
-        { _ = vm.ReturnToStartPage(); }
+        {
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                await vm.ReturnToStartPage();
+            });
+            return true;
+        }
 
-        return base.OnBackButtonPressed();
+        return true;
     }
 }
