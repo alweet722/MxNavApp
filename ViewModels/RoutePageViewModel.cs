@@ -6,6 +6,7 @@ using Mapsui.Projections;
 using Mapsui.Styles;
 using Mapsui.Tiling;
 using NBNavApp.Common.Navigation;
+using NBNavApp.Common.Util;
 using NetTopologySuite.Geometries;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -26,6 +27,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
     readonly OffRouteDetector offRoute = new();
     readonly WrongWayDetector wrongWayDetector = new();
     readonly NavState navState = new();
+    readonly MovingAverage movingAverage = new();
 
     Dictionary<PointType, MemoryLayer?> pointLayers = new()
     {
@@ -44,8 +46,11 @@ public class RoutePageViewModel : INotifyPropertyChanged
     double[]? totalDist;
     double[]? segLen;
 
+    int locUpdateCounter = 0;
     bool isStopping;
     const double lookahead = 40.0;
+    TimeSpan timeToDest;
+    SpeedState speedState;
 
     bool isRouting;
     public bool IsRouting
@@ -444,9 +449,9 @@ public class RoutePageViewModel : INotifyPropertyChanged
         preparedSteps = RouteNavigation.PrepareSteps(steps, totalDist);
         routeXY = GeoFunctions.ToMercator(route);
 
-        TimeSpan timeToDestination = TimeSpan.FromSeconds(RouteNavigation.GetTimeToDest(routingResponse));
+        timeToDest = TimeSpan.FromSeconds(RouteNavigation.GetTimeToDest(routingResponse));
         DistToDestText = $"{RouteNavigation.GetDistance(routingResponse) / 1000:F1} km";
-        TimeToDestText = $"{timeToDestination.Hours}:{timeToDestination.Minutes}";
+        TimeToDestText = $"{timeToDest.Hours}:{timeToDest.Minutes}";
 
         IsRouting = false;
         NotifyUi();
@@ -454,6 +459,14 @@ public class RoutePageViewModel : INotifyPropertyChanged
 
     private async Task StartDriveAsync()
     {
+        try
+        { await Geolocation.GetLocationAsync(); }
+        catch (FeatureNotEnabledException)
+        {
+            await MauiAlertService.ShowAlertAsync("Navigation", "Geolocation is switched off.");
+            return;
+        }
+
         myLocation ??= new(Map, SphericalMercator.FromLonLat(navState.Start.lon, navState.Start.lat).ToMPoint());
         Map.Layers.Add(myLocation);
         Map.Navigator.CenterOnAndZoomTo(myLocation.MyLocation, 1, 1000, Mapsui.Animations.Easing.SinInOut);
@@ -503,12 +516,18 @@ public class RoutePageViewModel : INotifyPropertyChanged
             }
         }
 
+        myLocation?.Enabled = false;
+
+        myLocation = null;
         route = null;
 
         StartAddressText = string.Empty;
         DestAddressText = string.Empty;
         TimeToDestText = string.Empty;
         DistToDestText = string.Empty;
+
+        AvoidHighways = false;
+        AvoidToll = false;
 
         StartLocation = (0, 0);
         DestLocation = (0, 0);
@@ -532,10 +551,10 @@ public class RoutePageViewModel : INotifyPropertyChanged
             if (myLocation == null)
             { return; }
             myLocation.IsMoving = true;
-            var currentLocation = SphericalMercator.FromLonLat(location.Longitude, location.Latitude);
-            myLocation.UpdateMyLocation(currentLocation.ToMPoint(), true);
+            var currentCartesianLoc = SphericalMercator.FromLonLat(location.Longitude, location.Latitude);
+            myLocation.UpdateMyLocation(currentCartesianLoc.ToMPoint(), true);
 
-            var (s, dPerp) = RouteNavigation.MatchRouteToNextStep((currentLocation.x, currentLocation.y), routeXY, totalDist, segLen, preparedSteps, navState);
+            var (s, dPerp) = RouteNavigation.MatchRouteToNextStep((currentCartesianLoc.x, currentCartesianLoc.y), routeXY, totalDist, segLen, preparedSteps, navState);
 
             var (idx, nextIdx, distToNext, exit) = RouteNavigation.ComputeStepAndDistance(s, preparedSteps, navState);
             var nextStep = preparedSteps[nextIdx].type;
@@ -597,6 +616,8 @@ public class RoutePageViewModel : INotifyPropertyChanged
             double remaining = Math.Max(0, totalDist[^1] - s);
             double tol = Math.Max(10.0, location.Accuracy);
 
+            DistToDestText = $"{remaining / 1000:F1} km";
+
             if (isStopping)
             { return; }
             if (remaining <= tol)
@@ -617,8 +638,27 @@ public class RoutePageViewModel : INotifyPropertyChanged
             }
 
             payload = BleSender.BuildNavPacket((ushort)nextIdx, (byte)nextStep, (uint)distToNext, (byte)exit, (byte)RouteState.NORMAL);
-
             await bleSender.WriteCharacteristicAsync(payload);
+
+            Microsoft.Maui.Devices.Sensors.Location mLoc = GeoFunctions.ToMauiLocation(location);
+
+            var (speed, next) = RouteNavigation.ComputeSpeed(mLoc, speedState);
+            speedState = next;
+            if (speed < 0.5)
+            { return; }
+
+            var avgSpeed = movingAverage.Compute(speed);
+
+            locUpdateCounter++;
+            if (locUpdateCounter < 20)
+            { return; }
+
+            locUpdateCounter = 0;
+
+            var eta = remaining / avgSpeed;
+
+            timeToDest = TimeSpan.FromSeconds(eta);
+            TimeToDestText = $"{timeToDest.Hours}:{timeToDest.Minutes}";
         });
     }
 #endif

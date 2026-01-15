@@ -80,8 +80,14 @@ public class BleSender
         {
             ConnectedDevice.CancelConnection();
             ConnectedDevice = null;
-            await MauiAlertService.ShowAlertAsync("BLE", "Failed to get navigation characteristic.");
+            await MauiAlertService.ShowAlertAsync("BLE", "Timeout while getting navigation characteristic.");
             return false;
+        }
+        catch (Exception ex)
+        {
+            ConnectedDevice.CancelConnection();
+            ConnectedDevice = null;
+            await MauiAlertService.ShowAlertAsync("BLE", $"{ex.Message}");
         }
 
         return ConnectionState.IsConnected = true;

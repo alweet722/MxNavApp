@@ -79,4 +79,20 @@ internal class GeoFunctions
 
         return bearing;
     }
+
+#if ANDROID31_0_OR_GREATER
+    public static Location ToMauiLocation(Android.Locations.Location aLoc)
+    {
+        var m = new Location(aLoc.Latitude, aLoc.Longitude)
+        {
+            Altitude = aLoc.HasAltitude ? aLoc.Altitude : null,
+            Accuracy = aLoc.HasAccuracy ? aLoc.Accuracy : null,
+            Speed = aLoc.HasSpeed ? aLoc.Speed : null,          
+            Course = aLoc.HasBearing ? aLoc.Bearing : null,    
+            Timestamp = DateTimeOffset.FromUnixTimeMilliseconds(aLoc.Time)
+        };
+
+        return m;
+    }
+#endif
 }

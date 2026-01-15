@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using Android.App;
+using System.Text;
 using System.Text.Json;
 
 namespace NBNavApp.Common.Navigation;
@@ -39,6 +40,7 @@ public class NavState
 }
 
 public record PreparedStep(int index, Instruction type, string? instruction, int? exit_number, int[] way_points, double[] coords);
+public readonly record struct SpeedState(Location? PrevLoc, DateTimeOffset? PrevTime);
 
 public class RouteNavigation
 {
@@ -252,7 +254,6 @@ public class RouteNavigation
             break;
         }
 
-
         int manouverIndex = Math.Min(next, finalGoalIndex);
 
         int boundaryIndex = Math.Max(0, manouverIndex - 1);
@@ -260,6 +261,22 @@ public class RouteNavigation
         int exit = steps[manouverIndex].exit_number ?? 0;
 
         return (stepIndex, manouverIndex, dist, exit);
+    }
+
+    public static (double speedMps, SpeedState nextState) ComputeSpeed(Location loc, SpeedState state)
+    {
+        var now = loc.Timestamp;
+
+        if (state.PrevLoc is null || state.PrevTime is null)
+        { return (loc.Speed ?? 0, new(loc, now)); }
+
+        double dt = (now - state.PrevTime.Value).TotalSeconds;
+        if (dt < 0.5)
+        { return (loc.Speed ?? 0, state); }
+
+        double d = GeoFunctions.HaversineMeters((state.PrevLoc.Longitude, state.PrevLoc.Latitude), (loc.Longitude, loc.Latitude));
+
+        return (d / dt, new(loc, now));
     }
 
     public static (double lon, double lat) PointAtS(
