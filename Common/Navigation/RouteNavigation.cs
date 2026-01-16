@@ -1,10 +1,9 @@
-﻿using Android.App;
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 
 namespace NBNavApp.Common.Navigation;
 
-public enum Instruction
+public enum Instruction : byte
 {
     LEFT,
     RIGHT,

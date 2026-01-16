@@ -1,4 +1,5 @@
-﻿using Shiny.BluetoothLE;
+﻿using NBNavApp.Common.Navigation.Messages;
+using Shiny.BluetoothLE;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 
@@ -64,7 +65,7 @@ public class BleSender
         ConnectedDevice?.CancelConnection();
         ConnectedDevice = peripheral;
 
-        using CancellationTokenSource cts = new(TimeSpan.FromSeconds(5));
+        using CancellationTokenSource cts = new(TimeSpan.FromSeconds(15));
         try
         { await ConnectedDevice.ConnectAsync(null, cts.Token); }
         catch (TaskCanceledException)
@@ -93,7 +94,7 @@ public class BleSender
         return ConnectionState.IsConnected = true;
     }
 
-    public async Task WriteCharacteristicAsync(byte[] payload)
+    public async Task WriteCharacteristicAsync(BleMessage message)
     {
         CancellationTokenSource cts = new(TimeSpan.FromSeconds(3));
 
@@ -104,28 +105,11 @@ public class BleSender
         { return; }
 
         try
-        { await ConnectedDevice.WriteCharacteristicAsync(navChar, payload, false, cts.Token); }
+        { await ConnectedDevice.WriteCharacteristicAsync(navChar, message.Data, false, cts.Token); }
         catch (TaskCanceledException)
         { await MauiAlertService.ShowAlertAsync("BLE", "Write operation timed out."); }
         catch (InvalidOperationException)
         { await MauiAlertService.ShowAlertAsync("BLE", "Connection lost."); }
-    }
-
-    public static byte[] BuildNavPacket(ushort seq, byte type, uint distMeters, byte exit, byte flag)
-    {
-        byte[] data =
-        [
-            (byte)(seq & 0xFF),
-            (byte)((seq >> 8) & 0xFF),
-            type,
-            (byte)(distMeters & 0xFF),
-            (byte)((distMeters >> 8) & 0xFF),
-            (byte)((distMeters >> 16) & 0xFF),
-            (byte)((distMeters >> 24) & 0xFF),
-            exit,
-            flag
-        ];
-        return data;
     }
 
     public async Task Disconnect()

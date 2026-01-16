@@ -6,6 +6,7 @@ using Mapsui.Projections;
 using Mapsui.Styles;
 using Mapsui.Tiling;
 using NBNavApp.Common.Navigation;
+using NBNavApp.Common.Navigation.Messages;
 using NBNavApp.Common.Util;
 using NetTopologySuite.Geometries;
 using System.ComponentModel;
@@ -255,8 +256,8 @@ public class RoutePageViewModel : INotifyPropertyChanged
         MainThread.BeginInvokeOnMainThread(async () =>
         {
             navState.RouteState = RouteState.OFF_ROUTE;
-            byte[] payload = BleSender.BuildNavPacket(0, 0, 0, 0, (byte)navState.RouteState);
-            await bleSender.WriteCharacteristicAsync(payload);
+            StateMessage msg = new(navState.RouteState);
+            await bleSender.WriteCharacteristicAsync(msg);
         });
     }
 
@@ -490,7 +491,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
         IsDriving = false;
 
         NotifyUi();
-        await bleSender.WriteCharacteristicAsync(new byte[] { 0x00 });
+        await bleSender.WriteCharacteristicAsync(new ResetMessage());
     }
 
     private async Task StopDriveAsync(int delay = 0)
@@ -535,7 +536,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
         NotifyUi();
 
         await Task.Delay(TimeSpan.FromSeconds(delay));
-        await bleSender.WriteCharacteristicAsync(new byte[] { 0x00 });
+        await bleSender.WriteCharacteristicAsync(new ResetMessage());
     }
 
 #if ANDROID31_0_OR_GREATER
@@ -544,7 +545,6 @@ public class RoutePageViewModel : INotifyPropertyChanged
         MainThread.BeginInvokeOnMainThread(async () =>
         {
             // Debug.WriteLine($"{location.Latitude:F6} {location.Longitude:F6} ±{location.Accuracy}m");
-            byte[] payload;
             bool wrongWay = false;
             CancellationTokenSource cts = new(TimeSpan.FromSeconds(5));
 
@@ -577,8 +577,8 @@ public class RoutePageViewModel : INotifyPropertyChanged
                 case RouteState.NORMAL:
                     if (wrongWay)
                     {
-                        payload = BleSender.BuildNavPacket((ushort)nextIdx, (byte)Instruction.U_TURN, uint.MaxValue, (byte)exit, (byte)RouteState.NORMAL);
-                        await bleSender.WriteCharacteristicAsync(payload);
+                        NavMessage uturnMsg = new(Instruction.U_TURN, uint.MaxValue, (byte)exit);
+                        await bleSender.WriteCharacteristicAsync(uturnMsg);
                         return;
                     }
                     break;
@@ -589,8 +589,8 @@ public class RoutePageViewModel : INotifyPropertyChanged
                 case RouteState.REROUTE:
                     navState.Start = (location.Latitude, location.Longitude);
                     // Debug.WriteLine(reason);
-                    payload = BleSender.BuildNavPacket(0, 0, 0, 0, (byte)RouteState.REROUTE);
-                    await bleSender.WriteCharacteristicAsync(payload);
+                    StateMessage stateMsg = new(RouteState.REROUTE);
+                    await bleSender.WriteCharacteristicAsync(stateMsg);
 
                     try
                     {
@@ -616,6 +616,9 @@ public class RoutePageViewModel : INotifyPropertyChanged
             double remaining = Math.Max(0, totalDist[^1] - s);
             double tol = Math.Max(10.0, location.Accuracy);
 
+            DistMessage distMsg = new((float)remaining);
+            await bleSender.WriteCharacteristicAsync(distMsg);
+
             DistToDestText = $"{remaining / 1000:F1} km";
 
             if (isStopping)
@@ -623,22 +626,16 @@ public class RoutePageViewModel : INotifyPropertyChanged
             if (remaining <= tol)
             {
                 isStopping = true;
-                payload = BleSender.BuildNavPacket(
-                    (ushort)(preparedSteps?.Count - 1 ?? 0),
-                    (byte)Instruction.END,
-                    0,
-                    0,
-                    (byte)RouteState.NORMAL);
-
-                await bleSender.WriteCharacteristicAsync(payload);
+                NavMessage endMsg = new(Instruction.END, 0, 0);
+                await bleSender.WriteCharacteristicAsync(endMsg);
 
                 await StopDriveAsync(5);
                 isStopping = false;
                 return;
             }
 
-            payload = BleSender.BuildNavPacket((ushort)nextIdx, (byte)nextStep, (uint)distToNext, (byte)exit, (byte)RouteState.NORMAL);
-            await bleSender.WriteCharacteristicAsync(payload);
+            NavMessage navMsg = new(nextStep, (uint)distToNext, (byte)exit);
+            await bleSender.WriteCharacteristicAsync(navMsg);
 
             Microsoft.Maui.Devices.Sensors.Location mLoc = GeoFunctions.ToMauiLocation(location);
 
@@ -658,6 +655,9 @@ public class RoutePageViewModel : INotifyPropertyChanged
             var eta = remaining / avgSpeed;
 
             timeToDest = TimeSpan.FromSeconds(eta);
+            EtaMessage etaMsg = new(timeToDest);
+            await bleSender.WriteCharacteristicAsync(etaMsg);
+
             TimeToDestText = $"{timeToDest.Hours}:{timeToDest.Minutes}";
         });
     }
