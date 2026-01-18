@@ -324,7 +324,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
                 ShowPointOnMap(PointType.Start, geocode.Value.lat, geocode.Value.lon);
                 break;
         }
-        ;
+
         NotifyUi();
     }
 
@@ -460,6 +460,12 @@ public class RoutePageViewModel : INotifyPropertyChanged
 
     private async Task StartDriveAsync()
     {
+        if (!bleSender.ConnectionState.IsConnected)
+        {
+            await MauiAlertService.ShowAlertAsync("BLE", "Connection lost.");
+            return;
+        }
+
         try
         { await Geolocation.GetLocationAsync(); }
         catch (FeatureNotEnabledException)
@@ -480,6 +486,12 @@ public class RoutePageViewModel : INotifyPropertyChanged
             await MauiAlertService.ShowAlertAsync("Navigation", ex.Message);
             return;
         }
+
+        EtaMessage etaMsg = new(timeToDest);
+        await bleSender.WriteCharacteristicAsync(etaMsg);
+
+        DistMessage distMsg = new((uint)totalDist[^1]);
+        await bleSender.WriteCharacteristicAsync(distMsg);
 
         IsDriving = true;
         NotifyUi();
@@ -535,6 +547,9 @@ public class RoutePageViewModel : INotifyPropertyChanged
 
         NotifyUi();
 
+        if (!bleSender.ConnectionState.IsConnected)
+        { return; }
+
         await Task.Delay(TimeSpan.FromSeconds(delay));
         await bleSender.WriteCharacteristicAsync(new ResetMessage());
     }
@@ -544,6 +559,13 @@ public class RoutePageViewModel : INotifyPropertyChanged
     {
         MainThread.BeginInvokeOnMainThread(async () =>
         {
+            if (!bleSender.ConnectionState.IsConnected)
+            {
+                await MauiAlertService.ShowAlertAsync("BLE", "Connection lost.");
+                await StopDriveAsync();
+                return;
+            }
+
             // Debug.WriteLine($"{location.Latitude:F6} {location.Longitude:F6} ±{location.Accuracy}m");
             bool wrongWay = false;
             CancellationTokenSource cts = new(TimeSpan.FromSeconds(5));
@@ -588,9 +610,6 @@ public class RoutePageViewModel : INotifyPropertyChanged
                     return;
                 case RouteState.REROUTE:
                     navState.Start = (location.Latitude, location.Longitude);
-                    // Debug.WriteLine(reason);
-                    StateMessage stateMsg = new(RouteState.REROUTE);
-                    await bleSender.WriteCharacteristicAsync(stateMsg);
 
                     try
                     {
@@ -612,11 +631,13 @@ public class RoutePageViewModel : INotifyPropertyChanged
                     navState.RouteState = RouteState.NORMAL;
                     break;
             }
+            StateMessage stateMsg = new(navState.RouteState);
+            await bleSender.WriteCharacteristicAsync(stateMsg);
 
             double remaining = Math.Max(0, totalDist[^1] - s);
             double tol = Math.Max(10.0, location.Accuracy);
 
-            DistMessage distMsg = new((float)remaining);
+            DistMessage distMsg = new((uint)remaining);
             await bleSender.WriteCharacteristicAsync(distMsg);
 
             DistToDestText = $"{remaining / 1000:F1} km";
@@ -658,7 +679,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
             EtaMessage etaMsg = new(timeToDest);
             await bleSender.WriteCharacteristicAsync(etaMsg);
 
-            TimeToDestText = $"{timeToDest.Hours}:{timeToDest.Minutes}";
+            TimeToDestText = $"{timeToDest.Hours}:{timeToDest.Minutes:D2}";
         });
     }
 #endif

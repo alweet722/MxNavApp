@@ -2,9 +2,9 @@
 
 public class DistMessage : BleMessage
 {
-    public float Distance { get; }
+    public uint Distance { get; }
 
-    public DistMessage(float distance): base(MessageType.DIST)
+    public DistMessage(uint distance): base(MessageType.DIST)
     {
         Distance = distance;
 
