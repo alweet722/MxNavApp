@@ -1,4 +1,4 @@
-﻿namespace NBNavApp;
+﻿namespace NBNavApp.Common.Interfaces;
 
 public interface IAlertInterface
 {

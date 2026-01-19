@@ -1,4 +1,5 @@
-﻿using Shiny.BluetoothLE;
+﻿using NBNavApp.Common.Interfaces;
+using Shiny.BluetoothLE;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -8,8 +9,11 @@ namespace NBNavApp.ViewModels;
 public class StartPageViewModel : INotifyPropertyChanged
 {
     readonly BleSender bleSender;
-
+    private readonly ISettingsDialogService settingsDialog;
     public ObservableCollection<DeviceData> FoundDevices { get; } = new();
+
+    public string? MxNavName { get; set; }
+    public Color? MxNavColor { get; set; } 
 
     DeviceData? myDevice;
     public DeviceData? MyDevice
@@ -89,15 +93,17 @@ public class StartPageViewModel : INotifyPropertyChanged
     public ICommand ToggleConnectCommand { get; }
     public ICommand GoToRouteCommand { get; }
     public ICommand ClearSelectionCommand { get; }
+    public ICommand OpenSettingsCommand { get; }
 
     string fav;
 
     public event PropertyChangedEventHandler? PropertyChanged;
     void OnPropertyChanged(string n) => PropertyChanged?.Invoke(this, new(n));
 
-    public StartPageViewModel(BleSender bleSender)
+    public StartPageViewModel(BleSender bleSender, ISettingsDialogService settingsDialog)
     {
         this.bleSender = bleSender;
+        this.settingsDialog = settingsDialog;
 
         fav = Preferences.Default.Get(Constants.DISPL_DEV_KEY, string.Empty);
         if (Preferences.Default.ContainsKey(Constants.DISPL_DEV_KEY) && !string.IsNullOrEmpty(fav))
@@ -139,6 +145,16 @@ public class StartPageViewModel : INotifyPropertyChanged
         {
             SelectedFoundDevice = null;
             MyDeviceIsSelected = false;
+        });
+
+        OpenSettingsCommand = new Command(async () =>
+        {
+            var res = await settingsDialog.ShowSettingsDialogAsync(MxNavName, MxNavColor);
+            if (res == null)
+            { return; }
+
+            MxNavName = res.MxNavName;
+            MxNavColor = res.MxNavColor;
         });
     }
 

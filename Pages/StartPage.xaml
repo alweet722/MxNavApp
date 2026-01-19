@@ -164,6 +164,13 @@
             VerticalOptions="Center"/>
         <Button
             Grid.Row="6"
+            Grid.Column="0"
+            Text="Settings"
+            Command="{Binding OpenSettingsCommand}"
+            WidthRequest="120" 
+            HorizontalOptions="Start"/>
+        <Button
+            Grid.Row="6"
             Grid.Column="1"
             Text="Next"
             Command="{Binding GoToRouteCommand}"

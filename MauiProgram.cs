@@ -1,5 +1,7 @@
 ﻿using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
+using NBNavApp.Common.Interfaces;
+using NBNavApp.Common.Util;
 using NBNavApp.ViewModels;
 using Shiny;
 using SkiaSharp.Views.Maui.Controls.Hosting;
@@ -26,6 +28,9 @@ public static class MauiProgram
         builder.Services.AddSingleton<StartPageViewModel>();
         builder.Services.AddTransient<RoutePage>();
         builder.Services.AddSingleton<RoutePageViewModel>();
+        //builder.Services.AddTransient<SettingsPopup>();
+        //builder.Services.AddSingleton<SettingsPopupViewModel>();
+        builder.Services.AddSingleton<ISettingsDialogService, SettingsDialogService>();
         builder.Services.AddSingleton<BleConnectionState>();
         builder.Services.AddSingleton<NavigationManager>();
         builder.Services.AddSingleton<BleSender>();

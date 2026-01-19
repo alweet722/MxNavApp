@@ -1,4 +1,6 @@
-﻿namespace NBNavApp;
+﻿using NBNavApp.Common.Interfaces;
+
+namespace NBNavApp;
 
 internal class MauiAlertService : IAlertInterface
 {

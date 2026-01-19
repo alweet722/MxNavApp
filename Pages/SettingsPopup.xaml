@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<toolkit:Popup 
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+    x:Class="NBNavApp.Pages.SettingsPopup"
+    x:DataType="vm:SettingsPopupViewModel"
+    xmlns:vm="clr-namespace:NBNavApp.ViewModels"
+    
+    CanBeDismissedByTappingOutsideOfPopup="True"
+    Padding="0"
+    BackgroundColor="#1E1E1E">
+
+    <Grid
+        RowSpacing="10"
+        RowDefinitions="50,50,75" 
+        ColumnDefinitions="Auto,200" 
+        HorizontalOptions="Fill">
+        <Label 
+            Grid.Row="0"
+            Grid.Column="0"
+            Text="MX Nav Name"
+            FontSize="16"
+            VerticalOptions="Center" 
+            HorizontalOptions="Start" />
+        <Entry
+            Grid.Row="0"
+            Grid.Column="1"
+            Text="{Binding MxNavName}"
+            WidthRequest="150"
+            HorizontalOptions="End"/>
+        <Label 
+            Grid.Row="1"
+            Grid.Column="0"
+            Text="MX Nav Color"
+            FontSize="16"
+            VerticalOptions="Center" 
+            HorizontalOptions="Start" />
+        <Picker
+            Grid.Row="1"
+            Grid.Column="1"
+            ItemsSource="{Binding Colors}"
+            WidthRequest="150"
+            HorizontalOptions="End"/>
+        <Button
+            Grid.Row="2"
+            Grid.Column="0"
+            Text="Save"
+            HeightRequest="45"
+            WidthRequest="100"
+            HorizontalOptions="Start"
+            VerticalOptions="End"/>
+        <Button
+            Grid.Row="2"
+            Grid.Column="1"
+            Text="Back"
+            HeightRequest="45"
+            WidthRequest="100"
+            HorizontalOptions="End"
+            VerticalOptions="End"/>
+    </Grid>
+
+</toolkit:Popup>

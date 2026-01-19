@@ -122,6 +122,9 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <MauiXaml Update="Pages\SettingsPopup.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
 	  <MauiXaml Update="RoutePage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
