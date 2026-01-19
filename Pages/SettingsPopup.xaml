@@ -13,7 +13,7 @@
 
     <Grid
         RowSpacing="10"
-        RowDefinitions="50,50,75" 
+        RowDefinitions="50,50,30,50" 
         ColumnDefinitions="Auto,200" 
         HorizontalOptions="Fill">
         <Label 
@@ -26,7 +26,9 @@
         <Entry
             Grid.Row="0"
             Grid.Column="1"
-            Text="{Binding MxNavName}"
+            Text="{Binding MxNavName, Mode=TwoWay}"
+            FontSize="16"
+            ClearButtonVisibility="WhileEditing"
             WidthRequest="150"
             HorizontalOptions="End"/>
         <Label 
@@ -39,25 +41,34 @@
         <Picker
             Grid.Row="1"
             Grid.Column="1"
-            ItemsSource="{Binding Colors}"
+            ItemsSource="{Binding Colors, Mode=TwoWay}"
+            SelectedItem="{Binding SelectedColor, Mode=TwoWay}"
             WidthRequest="150"
             HorizontalOptions="End"/>
-        <Button
+        <Label 
             Grid.Row="2"
             Grid.Column="0"
+            Text="{Binding SaveStatusText}"
+            FontSize="16"
+            VerticalOptions="End" 
+            HorizontalOptions="Start" />
+        <Button
+            Grid.Row="3"
+            Grid.Column="0"
             Text="Save"
+            Command="{Binding SaveCommand}"
             HeightRequest="45"
             WidthRequest="100"
             HorizontalOptions="Start"
-            VerticalOptions="End"/>
+            VerticalOptions="Center"/>
         <Button
-            Grid.Row="2"
+            Grid.Row="3"
             Grid.Column="1"
             Text="Back"
+            Command="{Binding BackCommand}"
             HeightRequest="45"
             WidthRequest="100"
             HorizontalOptions="End"
-            VerticalOptions="End"/>
+            VerticalOptions="Center"/>
     </Grid>
-
 </toolkit:Popup>

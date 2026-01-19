@@ -17,20 +17,17 @@ internal class SettingsDialogService : ISettingsDialogService
         SettingsDialogResult? dialogResult = null;
 
         var vm = new SettingsPopupViewModel(
-            mxNavName,
             mxNavColor,
             close: async r =>
             {
                 dialogResult = r;
-                await settingsPopup?.CloseAsync();
+                settingsPopup?.CloseAsync();
             });
 
-        settingsPopup = new();
+        settingsPopup = new(vm);
 
         await page.ShowPopupAsync(settingsPopup);
 
         return dialogResult;
     }
-
-
 }
