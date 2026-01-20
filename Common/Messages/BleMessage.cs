@@ -1,4 +1,4 @@
-﻿namespace NBNavApp.Common.Navigation.Messages;
+﻿namespace NBNavApp.Common.Messages;
 
 public enum MessageType : byte
 {
@@ -7,7 +7,7 @@ public enum MessageType : byte
     ETA = 0x02,
     DIST = 0x04,
     STATE = 0x08,
-    COLOR = 0x10
+    PARAMETER = 0x10
 }
 
 public class BleMessage

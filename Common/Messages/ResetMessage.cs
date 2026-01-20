@@ -1,4 +1,4 @@
-﻿namespace NBNavApp.Common.Navigation.Messages;
+﻿namespace NBNavApp.Common.Messages;
 
 public class ResetMessage : BleMessage
 {

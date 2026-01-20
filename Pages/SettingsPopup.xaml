@@ -41,8 +41,10 @@
         <Picker
             Grid.Row="1"
             Grid.Column="1"
+            FontSize="16"
             ItemsSource="{Binding Colors, Mode=TwoWay}"
-            SelectedItem="{Binding SelectedColor, Mode=TwoWay}"
+            ItemDisplayBinding="{Binding Name}"
+            SelectedItem="{Binding MxNavColor, Mode=TwoWay}"
             WidthRequest="150"
             HorizontalOptions="End"/>
         <Label 
@@ -54,21 +56,21 @@
             HorizontalOptions="Start" />
         <Button
             Grid.Row="3"
-            Grid.Column="0"
+            Grid.Column="1"
             Text="Save"
             Command="{Binding SaveCommand}"
             HeightRequest="45"
             WidthRequest="100"
-            HorizontalOptions="Start"
+            HorizontalOptions="End"
             VerticalOptions="Center"/>
         <Button
             Grid.Row="3"
-            Grid.Column="1"
+            Grid.Column="0"
             Text="Back"
             Command="{Binding BackCommand}"
             HeightRequest="45"
             WidthRequest="100"
-            HorizontalOptions="End"
+            HorizontalOptions="Start"
             VerticalOptions="Center"/>
     </Grid>
 </toolkit:Popup>

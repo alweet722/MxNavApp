@@ -1,4 +1,6 @@
-﻿namespace NBNavApp.Common.Navigation.Messages;
+﻿using NBNavApp.Common.Navigation;
+
+namespace NBNavApp.Common.Messages;
 
 public class NavMessage : BleMessage
 {

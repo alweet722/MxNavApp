@@ -7,7 +7,7 @@ namespace NBNavApp.Common.Util;
 
 internal class SettingsDialogService : ISettingsDialogService
 {
-    public async Task<SettingsDialogResult?> ShowSettingsDialogAsync(string? mxNavName, Color? mxNavColor)
+    public async Task<SettingsDialogResult?> ShowSettingsDialogAsync(string? mxNavName, ColorEntry? mxNavColor)
     {
         var page = Application.Current?.MainPage;
         if (page is null)
@@ -17,7 +17,6 @@ internal class SettingsDialogService : ISettingsDialogService
         SettingsDialogResult? dialogResult = null;
 
         var vm = new SettingsPopupViewModel(
-            mxNavColor,
             close: async r =>
             {
                 dialogResult = r;

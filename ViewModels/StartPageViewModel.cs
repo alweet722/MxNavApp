@@ -1,7 +1,9 @@
 ﻿using NBNavApp.Common.Interfaces;
+using NBNavApp.Common.Messages.ParameterMessages;
 using Shiny.BluetoothLE;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows.Input;
 
 namespace NBNavApp.ViewModels;
@@ -13,7 +15,7 @@ public class StartPageViewModel : INotifyPropertyChanged
     public ObservableCollection<DeviceData> FoundDevices { get; } = new();
 
     public string? MxNavName { get; set; }
-    public Color? MxNavColor { get; set; } 
+    public ColorEntry? MxNavColor { get; set; }
 
     DeviceData? myDevice;
     public DeviceData? MyDevice
@@ -105,8 +107,8 @@ public class StartPageViewModel : INotifyPropertyChanged
         this.bleSender = bleSender;
         this.settingsDialog = settingsDialog;
 
-        fav = Preferences.Default.Get(Constants.DISPL_DEV_KEY, string.Empty);
-        if (Preferences.Default.ContainsKey(Constants.DISPL_DEV_KEY) && !string.IsNullOrEmpty(fav))
+        fav = Preferences.Default.Get(Constants.MX_NAV_NAME_KEY, string.Empty);
+        if (Preferences.Default.ContainsKey(Constants.MX_NAV_NAME_KEY) && !string.IsNullOrEmpty(fav))
         {
             DeviceData? dev = new(0, "N/A", fav);
             MyDevice = dev;
@@ -147,7 +149,8 @@ public class StartPageViewModel : INotifyPropertyChanged
             MyDeviceIsSelected = false;
         });
 
-        OpenSettingsCommand = new Command(async () =>
+        OpenSettingsCommand = new Command(
+            execute: async () =>
         {
             var res = await settingsDialog.ShowSettingsDialogAsync(MxNavName, MxNavColor);
             if (res == null)
@@ -155,7 +158,21 @@ public class StartPageViewModel : INotifyPropertyChanged
 
             MxNavName = res.MxNavName;
             MxNavColor = res.MxNavColor;
-        });
+
+            if (!string.IsNullOrEmpty(MxNavName))
+            {
+                foreach (var msg in NameMessage.CreateNameMessages(MxNavName))
+                { await bleSender.WriteCharacteristicAsync(msg); }
+            }
+
+            if (MxNavColor != null)
+            {
+                ColorMessage colorMessage = new(MxNavColor.Color);
+                await bleSender.WriteCharacteristicAsync(colorMessage);
+            }
+        },
+            canExecute: () => bleSender.ConnectedDevice != null
+        );
     }
 
     private async Task OnAppearingAsync()
@@ -177,6 +194,7 @@ public class StartPageViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(CanGoNext));
 
         ((Command)ToggleConnectCommand).ChangeCanExecute();
+        ((Command)OpenSettingsCommand).ChangeCanExecute();
     }
 
     private async Task InitialScanAsync()
@@ -246,7 +264,7 @@ public class StartPageViewModel : INotifyPropertyChanged
             return;
         }
 
-        Preferences.Default.Set(Constants.DISPL_DEV_KEY, bleSender.ConnectedDevice?.Name);
+        Preferences.Default.Set(Constants.MX_NAV_NAME_KEY, bleSender.ConnectedDevice?.Name);
         fav = bleSender.ConnectedDevice?.Name ?? fav;
 
         MyDevice = new(0, bleSender.ConnectedDevice?.Uuid, fav, bleSender.ConnectedDevice);
