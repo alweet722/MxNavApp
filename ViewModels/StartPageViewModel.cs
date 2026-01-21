@@ -290,7 +290,7 @@ public class StartPageViewModel : INotifyPropertyChanged
         var status = await Permissions.CheckStatusAsync<Permissions.LocationAlways>();
         if (status == PermissionStatus.Granted)
         { return status; }
-        await Permissions.RequestAsync<Permissions.LocationAlways>();
+        status = await Permissions.RequestAsync<Permissions.LocationAlways>();
         return status;
     }
 
@@ -299,7 +299,7 @@ public class StartPageViewModel : INotifyPropertyChanged
         var status = await Permissions.CheckStatusAsync<Permissions.PostNotifications>();
         if (status == PermissionStatus.Granted)
         { return status; }
-        await Permissions.RequestAsync<Permissions.PostNotifications>();
+        status = await Permissions.RequestAsync<Permissions.PostNotifications>();
         return status;
     }
 
@@ -308,7 +308,7 @@ public class StartPageViewModel : INotifyPropertyChanged
         var status = await Permissions.CheckStatusAsync<Permissions.Bluetooth>();
         if (status == PermissionStatus.Granted)
         { return status; }
-        await Permissions.RequestAsync<Permissions.Bluetooth>();
+        status = await Permissions.RequestAsync<Permissions.Bluetooth>();
         return status;
     }
 }

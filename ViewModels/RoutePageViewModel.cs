@@ -1,16 +1,13 @@
 ﻿using Mapsui;
 using Mapsui.Extensions;
 using Mapsui.Layers;
-using Mapsui.Nts;
 using Mapsui.Projections;
-using Mapsui.Styles;
 using Mapsui.Tiling;
 using NBNavApp.Common.Messages;
 using NBNavApp.Common.Navigation;
+using NBNavApp.Common.Services;
 using NBNavApp.Common.Util;
-using NetTopologySuite.Geometries;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Windows.Input;
 
 namespace NBNavApp.ViewModels;
@@ -29,14 +26,8 @@ public class RoutePageViewModel : INotifyPropertyChanged
     readonly WrongWayDetector wrongWayDetector = new();
     readonly NavState navState = new();
     readonly MovingAverage movingAverage = new();
+    readonly MapService mapService;
 
-    Dictionary<PointType, MemoryLayer?> pointLayers = new()
-    {
-        {PointType.Start, null},
-        {PointType.Destination, null }
-    };
-
-    MemoryLayer? routeLayer;
     MyLocationLayer? myLocation;
 
     List<(double lon, double lat)>? route;
@@ -193,6 +184,8 @@ public class RoutePageViewModel : INotifyPropertyChanged
         this.nav = nav;
         this.bleSender = bleSender;
 
+        mapService = new(Map);
+
         StartAddressCompletedCommand = new Command(async () => await GeocodeAddressAsync(StartAddressText, PointType.Start));
 
         DestAddressCompletedCommand = new Command(async () => await GeocodeAddressAsync(DestAddressText, PointType.Destination));
@@ -266,9 +259,19 @@ public class RoutePageViewModel : INotifyPropertyChanged
         navState.RouteState = RouteState.NORMAL;
     }
 
+    private void ShowPointOnMap(PointType type, double lat, double lon)
+    {
+        var mapType = type == PointType.Start ? MapService.MapPointType.Start : MapService.MapPointType.Destination;
+        mapService.ShowPoint(mapType, lat, lon);
+    }
+
+    private void ShowRoute(List<(double lon, double lat)> routePoints)
+    {
+        mapService.ShowRoute(routePoints);
+    }
+
     private async Task GetCurrentLocationAsync()
     {
-        routeLayer?.Features = [];
         Map.Refresh();
 
         Microsoft.Maui.Devices.Sensors.Location? location;
@@ -300,7 +303,6 @@ public class RoutePageViewModel : INotifyPropertyChanged
 
     private async Task GeocodeAddressAsync(string? address, PointType pointType)
     {
-        routeLayer?.Features = [];
         Map.Refresh();
 
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(10));
@@ -326,83 +328,6 @@ public class RoutePageViewModel : INotifyPropertyChanged
         }
 
         NotifyUi();
-    }
-
-    private void ShowPointOnMap(PointType type, double lat, double lon)
-    {
-        Mapsui.Styles.Color color;
-        (double x, double y) point = SphericalMercator.FromLonLat(lon, lat);
-
-        if (type == PointType.Start)
-        { color = Mapsui.Styles.Color.LimeGreen; }
-        else
-        { color = Mapsui.Styles.Color.Maroon; }
-
-        PointFeature feature = new(point.ToMPoint());
-        feature.Styles.Add(new SymbolStyle
-        {
-            SymbolScale = 1.0,
-            Fill = new(color)
-        });
-
-        if (pointLayers[type] == null)
-        {
-            pointLayers[type] = new()
-            {
-                Name = type.ToString(),
-                Features = new[] { feature }
-            };
-            Map.Layers.Add(pointLayers[type]!);
-        }
-        else
-        {
-            MemoryLayer layer = pointLayers[type]!;
-            layer.Features = new[] { feature };
-        }
-
-        Map.Navigator.CenterOnAndZoomTo(point.ToMPoint(), 1, duration: 1000, easing: Mapsui.Animations.Easing.SinInOut);
-
-        Map.Refresh();
-    }
-
-    private void ShowRoute(List<(double lon, double lat)> routePoints)
-    {
-        List<(double x, double y)> mercPts = routePoints.Select(p => SphericalMercator.FromLonLat(p.lon, p.lat)).ToList();
-        Coordinate[] pts = mercPts.Select(p => new Coordinate(p.x, p.y)).ToArray();
-
-        LineString lineString = new(pts);
-
-        GeometryFeature feature = new()
-        {
-            Geometry = lineString,
-        };
-
-        feature.Styles.Add(new VectorStyle
-        {
-            Line = new Pen
-            {
-                Width = 6,
-                Color = Mapsui.Styles.Color.Cyan
-            }
-        });
-
-        if (routeLayer == null)
-        {
-            routeLayer = new()
-            {
-                Name = "Route",
-                Features = new[] { feature }
-            };
-            Map.Layers.Add(routeLayer);
-        }
-        else
-        { routeLayer.Features = new[] { feature }; }
-
-        Envelope env = lineString.EnvelopeInternal;
-        MRect box = new(env.MinX, env.MinY, env.MaxX, env.MaxY);
-        Map.Navigator.ZoomToBox(box, duration: 1000, easing: Mapsui.Animations.Easing.SinInOut);
-
-        Map.Refresh();
     }
 
     private async Task RouteAsync()
@@ -510,24 +435,9 @@ public class RoutePageViewModel : INotifyPropertyChanged
     {
         nav.StopNavigation();
         IsDriving = false;
+        mapService.ClearRoute();
 
-        if (routeLayer != null)
-        {
-            Map.Layers.Remove(routeLayer);
-            routeLayer = null;
-        }
-
-        if (pointLayers != null)
-        {
-            foreach (var type in pointLayers.Keys.ToList())
-            {
-                if (pointLayers[type] != null)
-                {
-                    Map.Layers.Remove(pointLayers[type]);
-                    pointLayers[type] = null;
-                }
-            }
-        }
+        mapService.ClearPoints();
 
         myLocation?.Enabled = false;
 
