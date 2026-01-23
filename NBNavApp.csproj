@@ -19,10 +19,10 @@
 		<Nullable>enable</Nullable>
 
 		<!-- Display name -->
-		<ApplicationTitle>NBNavApp</ApplicationTitle>
+		<ApplicationTitle>MX Navigation</ApplicationTitle>
 
 		<!-- App Identifier -->
-		<ApplicationId>com.companyname.nbnavapp</ApplicationId>
+		<ApplicationId>com.alweet722.nbnavapp</ApplicationId>
 
 		<!-- Versions -->
 		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
@@ -40,45 +40,45 @@
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-android|AnyCPU'">
 	  <ApplicationTitle>MX Navigation</ApplicationTitle>
-	  <ApplicationId>com.companyname.nbnavapp</ApplicationId>
+	  <ApplicationId>com.alweet722.nbnavapp</ApplicationId>
 	  <AndroidKeyStore>False</AndroidKeyStore>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-ios|AnyCPU'">
 	  <ApplicationTitle>MX Navigation</ApplicationTitle>
-	  <ApplicationId>com.companyname.nbnavapp</ApplicationId>
+	  <ApplicationId>com.alweet722.nbnavapp</ApplicationId>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-maccatalyst|AnyCPU'">
 	  <ApplicationTitle>MX Navigation</ApplicationTitle>
-	  <ApplicationId>com.companyname.nbnavapp</ApplicationId>
+	  <ApplicationId>com.alweet722.nbnavapp</ApplicationId>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-windows10.0.19041.0|AnyCPU'">
 	  <ApplicationTitle>MX Navigation</ApplicationTitle>
-	  <ApplicationId>com.companyname.nbnavapp</ApplicationId>
+	  <ApplicationId>com.alweet722.nbnavapp</ApplicationId>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0-android|AnyCPU'">
 	  <ApplicationTitle>MX Navigation</ApplicationTitle>
-	  <ApplicationId>com.companyname.nbnavapp</ApplicationId>
+	  <ApplicationId>com.alweet722.nbnavapp</ApplicationId>
 	  <AndroidPackageFormat>apk</AndroidPackageFormat>
 	  <AndroidKeyStore>False</AndroidKeyStore>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0-ios|AnyCPU'">
 	  <ApplicationTitle>MX Navigation</ApplicationTitle>
-	  <ApplicationId>com.companyname.nbnavapp</ApplicationId>
+	  <ApplicationId>com.alweet722.nbnavapp</ApplicationId>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0-maccatalyst|AnyCPU'">
 	  <ApplicationTitle>MX Navigation</ApplicationTitle>
-	  <ApplicationId>com.companyname.nbnavapp</ApplicationId>
+	  <ApplicationId>com.alweet722.nbnavapp</ApplicationId>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0-windows10.0.19041.0|AnyCPU'">
 	  <ApplicationTitle>MX Navigation</ApplicationTitle>
-	  <ApplicationId>com.companyname.nbnavapp</ApplicationId>
+	  <ApplicationId>com.alweet722.nbnavapp</ApplicationId>
 	</PropertyGroup>
 
 	<ItemGroup>
