@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:mapsui="clr-namespace:Mapsui.UI.Maui;assembly=Mapsui.UI.Maui"
     xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
-    x:Class="NBNavApp.RoutePage"
+    x:Class="NBNavApp.Pages.RoutePage"
     x:DataType="vm:RoutePageViewModel"
     xmlns:vm="clr-namespace:NBNavApp.ViewModels"
     HideSoftInputOnTapped="True">

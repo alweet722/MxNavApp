@@ -1,6 +1,6 @@
 using NBNavApp.ViewModels;
 
-namespace NBNavApp;
+namespace NBNavApp.Pages;
 
 public partial class RoutePage : ContentPage
 {

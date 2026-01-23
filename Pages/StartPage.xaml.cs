@@ -1,10 +1,10 @@
 ﻿using NBNavApp.ViewModels;
 
-namespace NBNavApp;
+namespace NBNavApp.Pages;
 
 public partial class StartPage : ContentPage
 {
-    bool _promptOpen;
+    bool promptOpen;
 
     public StartPage(StartPageViewModel vm)
     {
@@ -14,10 +14,10 @@ public partial class StartPage : ContentPage
 
     protected override bool OnBackButtonPressed()
     {
-        if (_promptOpen)
+        if (promptOpen)
         { return true; }
 
-        _promptOpen = true;
+        promptOpen = true;
         MainThread.BeginInvokeOnMainThread(async () =>
         {
             if (BindingContext is StartPageViewModel vm)
@@ -35,7 +35,7 @@ public partial class StartPage : ContentPage
                 }
                 finally
                 {
-                    _promptOpen = false;
+                    promptOpen = false;
                 }
             }
         });

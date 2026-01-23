@@ -3,10 +3,12 @@ using Mapsui.Extensions;
 using Mapsui.Layers;
 using Mapsui.Projections;
 using Mapsui.Tiling;
+using NBNavApp.Common.Ble;
 using NBNavApp.Common.Messages;
 using NBNavApp.Common.Navigation;
 using NBNavApp.Common.Services;
 using NBNavApp.Common.Util;
+using Shiny.BluetoothLE;
 using System.ComponentModel;
 using System.Windows.Input;
 
@@ -27,6 +29,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
     readonly NavState navState = new();
     readonly MovingAverage movingAverage = new();
     readonly MapService mapService;
+    readonly BleStateMonitor bleStateMonitor;
 
     MyLocationLayer? myLocation;
 
@@ -179,10 +182,11 @@ public class RoutePageViewModel : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
     void OnPropertyChanged(string n) => PropertyChanged?.Invoke(this, new(n));
 
-    public RoutePageViewModel(NavigationManager nav, BleSender bleSender)
+    public RoutePageViewModel(NavigationManager nav, BleSender bleSender, BleStateMonitor bleStateMonitor)
     {
         this.nav = nav;
         this.bleSender = bleSender;
+        this.bleStateMonitor = bleStateMonitor;
 
         mapService = new(Map);
 
@@ -220,6 +224,18 @@ public class RoutePageViewModel : INotifyPropertyChanged
 #endif
         OffRouteDetector.GoneOffRoute += OnGoneOffRoute;
         OffRouteDetector.ReturnedOnRoute += OnReturnedOnRoute;
+
+        bleStateMonitor.PeripheralStateChanged += OnPeripheralStateChanged;
+    }
+
+    private void OnPeripheralStateChanged(object sender, BleStateEventArgs e)
+    {
+        if (e.State != ConnectionState.Disconnected)
+        { return; }
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            await StopDriveAsync();
+        });
     }
 
     public void NotifyUi()
@@ -385,6 +401,9 @@ public class RoutePageViewModel : INotifyPropertyChanged
 
     private async Task StartDriveAsync()
     {
+        if (totalDist == null)
+        { return; }
+
         if (!bleSender.ConnectionState.IsConnected)
         {
             await MauiAlertService.ShowAlertAsync("BLE", "Connection lost.");
@@ -467,6 +486,9 @@ public class RoutePageViewModel : INotifyPropertyChanged
 #if ANDROID31_0_OR_GREATER
     private void OnLocationUpdated(Android.Locations.Location location)
     {
+        if (route == null || routeXY == null || totalDist == null || segLen == null || preparedSteps == null)
+        { return; }
+
         MainThread.BeginInvokeOnMainThread(async () =>
         {
             if (!bleSender.ConnectionState.IsConnected)
@@ -476,7 +498,6 @@ public class RoutePageViewModel : INotifyPropertyChanged
                 return;
             }
 
-            // Debug.WriteLine($"{location.Latitude:F6} {location.Longitude:F6} ±{location.Accuracy}m");
             bool wrongWay = false;
             CancellationTokenSource cts = new(TimeSpan.FromSeconds(5));
 
@@ -486,7 +507,13 @@ public class RoutePageViewModel : INotifyPropertyChanged
             var currentCartesianLoc = SphericalMercator.FromLonLat(location.Longitude, location.Latitude);
             myLocation.UpdateMyLocation(currentCartesianLoc.ToMPoint(), true);
 
-            var (s, dPerp) = RouteNavigation.MatchRouteToNextStep((currentCartesianLoc.x, currentCartesianLoc.y), routeXY, totalDist, segLen, preparedSteps, navState);
+            var (s, dPerp) = RouteNavigation.MatchRouteToNextStep(
+                (currentCartesianLoc.x, currentCartesianLoc.y),
+                routeXY,
+                totalDist,
+                segLen,
+                preparedSteps,
+                navState);
 
             var (idx, nextIdx, distToNext, exit) = RouteNavigation.ComputeStepAndDistance(s, preparedSteps, navState);
             var nextStep = preparedSteps[nextIdx].type;

@@ -3,7 +3,7 @@ using Shiny.BluetoothLE;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 
-namespace NBNavApp;
+namespace NBNavApp.Common.Ble;
 
 public class BleSender
 {
@@ -135,7 +135,7 @@ public class DeviceData : INotifyPropertyChanged
             OnChanged(nameof(IsEnabled));
         }
     }
-    public string Name { get; }
+    public string Name { get; set; }
     public string Id { get; }
     public int Rssi { get; }
     public string Details => $"RSSI {Rssi} | {Id}";

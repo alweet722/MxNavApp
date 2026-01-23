@@ -1,9 +1,9 @@
-﻿using NBNavApp.Common.Interfaces;
+﻿using NBNavApp.Common.Ble;
+using NBNavApp.Common.Interfaces;
 using NBNavApp.Common.Messages.ParameterMessages;
 using Shiny.BluetoothLE;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Windows.Input;
 
 namespace NBNavApp.ViewModels;
@@ -11,6 +11,8 @@ namespace NBNavApp.ViewModels;
 public class StartPageViewModel : INotifyPropertyChanged
 {
     readonly BleSender bleSender;
+    readonly BleStateMonitor bleStateMonitor;
+
     private readonly ISettingsDialogService settingsDialog;
     public ObservableCollection<DeviceData> FoundDevices { get; } = new();
 
@@ -83,6 +85,18 @@ public class StartPageViewModel : INotifyPropertyChanged
         }
     }
 
+    bool settingsOpen;
+    public bool SettingsOpen
+    {
+        get => settingsOpen;
+        set
+        {
+            if (settingsOpen == value) return;
+            settingsOpen = value;
+            OnPropertyChanged(nameof(SettingsOpen));
+        }
+    }
+
     public bool MyDeviceIsEnabled => MyDevice?.Peripheral != null && bleSender.ConnectedDevice == null;
     public string ConnectionStatusText => bleSender.ConnectedDevice?.Name ?? "Disconnected";
     public string ConnectButtonText => bleSender.ConnectedDevice != null ? "Disconnect" : "Connect";
@@ -102,10 +116,11 @@ public class StartPageViewModel : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
     void OnPropertyChanged(string n) => PropertyChanged?.Invoke(this, new(n));
 
-    public StartPageViewModel(BleSender bleSender, ISettingsDialogService settingsDialog)
+    public StartPageViewModel(BleSender bleSender, BleStateMonitor bleStateMonitor, ISettingsDialogService settingsDialog)
     {
         this.bleSender = bleSender;
         this.settingsDialog = settingsDialog;
+        this.bleStateMonitor = bleStateMonitor;
 
         fav = Preferences.Default.Get(Constants.MX_NAV_NAME_KEY, string.Empty);
         if (Preferences.Default.ContainsKey(Constants.MX_NAV_NAME_KEY) && !string.IsNullOrEmpty(fav))
@@ -152,6 +167,9 @@ public class StartPageViewModel : INotifyPropertyChanged
         OpenSettingsCommand = new Command(
             execute: async () =>
         {
+            SettingsOpen = true;
+            NotifyUi();
+
             var res = await settingsDialog.ShowSettingsDialogAsync(MxNavName, MxNavColor);
             if (res == null)
             { return; }
@@ -159,20 +177,34 @@ public class StartPageViewModel : INotifyPropertyChanged
             MxNavName = res.MxNavName;
             MxNavColor = res.MxNavColor;
 
-            if (!string.IsNullOrEmpty(MxNavName))
-            {
-                foreach (var msg in NameMessage.CreateNameMessages(MxNavName))
-                { await bleSender.WriteCharacteristicAsync(msg); }
-            }
-
             if (MxNavColor != null)
             {
                 ColorMessage colorMessage = new(MxNavColor.Color);
                 await bleSender.WriteCharacteristicAsync(colorMessage);
             }
+
+            if (!string.IsNullOrEmpty(MxNavName) && MxNavName != fav)
+            {
+                foreach (var msg in NameMessage.CreateNameMessages(MxNavName))
+                { await bleSender.WriteCharacteristicAsync(msg); }
+                fav = MyDevice?.Name = MxNavName;
+
+                await bleSender.Disconnect();
+                await ScanAsync(5);
+            }
+
+            SettingsOpen = false;
+            NotifyUi();
         },
-            canExecute: () => bleSender.ConnectedDevice != null
+            canExecute: () => bleSender.ConnectedDevice != null && !SettingsOpen
         );
+
+        bleStateMonitor.PeripheralStateChanged += OnPeripheralStateChanged;
+    }
+
+    private void OnPeripheralStateChanged(object? sender, BleStateEventArgs e)
+    {
+        NotifyUi();
     }
 
     private async Task OnAppearingAsync()
@@ -192,6 +224,7 @@ public class StartPageViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(ConnectionStatusText));
         OnPropertyChanged(nameof(ConnectButtonText));
         OnPropertyChanged(nameof(CanGoNext));
+        OnPropertyChanged(nameof(SettingsOpen));
 
         ((Command)ToggleConnectCommand).ChangeCanExecute();
         ((Command)OpenSettingsCommand).ChangeCanExecute();
@@ -255,7 +288,7 @@ public class StartPageViewModel : INotifyPropertyChanged
         IsConnecting = true;
         bool status = await bleSender.ConnectAndCacheCharacteristic(SelectedForConnect.Peripheral);
 
-        if (!status)
+        if (!status || bleSender.ConnectedDevice == null)
         {
             IsConnecting = false;
             MyDevice = new(0, "N/A", fav);
@@ -267,7 +300,7 @@ public class StartPageViewModel : INotifyPropertyChanged
         Preferences.Default.Set(Constants.MX_NAV_NAME_KEY, bleSender.ConnectedDevice?.Name);
         fav = bleSender.ConnectedDevice?.Name ?? fav;
 
-        MyDevice = new(0, bleSender.ConnectedDevice?.Uuid, fav, bleSender.ConnectedDevice);
+        MyDevice = new(0, bleSender.ConnectedDevice.Uuid, fav, bleSender.ConnectedDevice);
 
         MyDeviceIsSelected = false;
         IsConnecting = false;

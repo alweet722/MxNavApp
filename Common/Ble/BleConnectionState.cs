@@ -1,5 +1,7 @@
 ﻿using System.ComponentModel;
 
+namespace NBNavApp.Common.Ble;
+
 public class BleConnectionState : INotifyPropertyChanged
 {
     bool isConnected;

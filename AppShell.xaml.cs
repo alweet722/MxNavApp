@@ -1,11 +1,12 @@
-﻿namespace NBNavApp
+﻿using NBNavApp.Pages;
+
+namespace NBNavApp;
+
+public partial class AppShell : Shell
 {
-    public partial class AppShell : Shell
+    public AppShell()
     {
-        public AppShell()
-        {
-            InitializeComponent();
-            Routing.RegisterRoute("RoutePage", typeof(RoutePage));
-        }
+        InitializeComponent();
+        Routing.RegisterRoute("RoutePage", typeof(RoutePage));
     }
 }

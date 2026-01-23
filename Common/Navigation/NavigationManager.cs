@@ -1,4 +1,6 @@
-﻿namespace NBNavApp;
+﻿using NBNavApp.Common.Ble;
+
+namespace NBNavApp.Common.Navigation;
 
 public class NavigationManager
 {

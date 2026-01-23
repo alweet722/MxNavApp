@@ -5,7 +5,7 @@ namespace NBNavApp.ViewModels;
 
 public sealed class SettingsDialogResult
 {
-    public string MxNavName { get; init; }
+    public string MxNavName { get; init; } = string.Empty;
     public ColorEntry? MxNavColor { get; init; }
 }
 

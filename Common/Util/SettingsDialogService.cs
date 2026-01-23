@@ -9,7 +9,7 @@ internal class SettingsDialogService : ISettingsDialogService
 {
     public async Task<SettingsDialogResult?> ShowSettingsDialogAsync(string? mxNavName, ColorEntry? mxNavColor)
     {
-        var page = Application.Current?.MainPage;
+        var page = Application.Current?.Windows.FirstOrDefault()?.Page;
         if (page is null)
         { return null; }
 
