@@ -1,4 +1,4 @@
-﻿namespace NBNavApp;
+﻿namespace NBNavApp.Common.Navigation;
 
 public static class LocationBus
 {

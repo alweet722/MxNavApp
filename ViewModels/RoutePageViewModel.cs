@@ -14,7 +14,7 @@ using System.Windows.Input;
 
 namespace NBNavApp.ViewModels;
 
-public class RoutePageViewModel : INotifyPropertyChanged
+public partial class RoutePageViewModel : INotifyPropertyChanged
 {
     enum PointType
     {
@@ -325,7 +325,7 @@ public class RoutePageViewModel : INotifyPropertyChanged
         if (string.IsNullOrEmpty(address))
         { return; }
 
-        var geocode = await AddressGeocoder.GeocodeAddress(Constants.API_KEY, address, cts.Token);
+        var geocode = await AddressGeocoder.GeocodeAddress(address, cts.Token);
         if (geocode == null)
         { return; }
 
@@ -361,7 +361,6 @@ public class RoutePageViewModel : INotifyPropertyChanged
         NotifyUi();
 
         var routingResponse = await RouteNavigation.GetRoutingResponseAsync(
-            Constants.API_KEY,
             [navState.Start.lon, navState.Start.lat],
             [navState.Destination.lon, navState.Destination.lat],
             avoidFeatures.ToArray(),
@@ -397,6 +396,31 @@ public class RoutePageViewModel : INotifyPropertyChanged
 
         IsRouting = false;
         NotifyUi();
+    }
+
+    private async Task RerouteAsync(
+    double[] newStart,
+    double[] dest,
+    string[] avoid)
+    {
+        CancellationTokenSource cts = new(TimeSpan.FromSeconds(15));
+        var res = await RouteNavigation.GetRoutingResponseAsync(newStart, dest, avoid, cts.Token);
+        if (res == null)
+        { return; }
+
+        var route = RouteNavigation.GetRoute(res);
+        if (route == null)
+        { return; }
+
+        var steps = RouteNavigation.GetRoutingSteps(res);
+        (totalDist, segLen) = RouteNavigation.BuildTotalDist(route);
+        preparedSteps = RouteNavigation.PrepareSteps(steps, totalDist);
+        routeXY = GeoFunctions.ToMercator(route);
+
+        navState.CurrentStepIndex = 0;
+        navState.LastSegIndex = 0;
+
+        ShowRoute(route);
     }
 
     private async Task StartDriveAsync()
@@ -551,10 +575,17 @@ public class RoutePageViewModel : INotifyPropertyChanged
                     try
                     {
                         await RerouteAsync(
-                            Constants.API_KEY,
                             [navState.Start.lon, navState.Start.lat],
                             [navState.Destination.lon, navState.Destination.lat],
                             avoidFeatures.ToArray());
+                        
+                        (s, dPerp) = RouteNavigation.MatchRouteToNextStep(
+                            (currentCartesianLoc.x, currentCartesianLoc.y),
+                            routeXY,
+                            totalDist,
+                            segLen,
+                            preparedSteps,
+                            navState);
                     }
                     catch (TaskCanceledException)
                     {
@@ -620,30 +651,4 @@ public class RoutePageViewModel : INotifyPropertyChanged
         });
     }
 #endif
-
-    private async Task RerouteAsync(
-    string apiKey,
-    double[] newStart,
-    double[] dest,
-    string[] avoid)
-    {
-        CancellationTokenSource cts = new(TimeSpan.FromSeconds(15));
-        var res = await RouteNavigation.GetRoutingResponseAsync(apiKey, newStart, dest, avoid, cts.Token);
-        if (res == null)
-        { return; }
-
-        var route = RouteNavigation.GetRoute(res);
-        if (route == null)
-        { return; }
-
-        var steps = RouteNavigation.GetRoutingSteps(res);
-        (totalDist, segLen) = RouteNavigation.BuildTotalDist(route);
-        preparedSteps = RouteNavigation.PrepareSteps(steps, totalDist);
-        routeXY = GeoFunctions.ToMercator(route);
-
-        navState.CurrentStepIndex = 0;
-        navState.LastSegIndex = 0;
-
-        ShowRoute(route);
-    }
 }

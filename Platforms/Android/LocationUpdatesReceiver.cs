@@ -1,8 +1,9 @@
 ﻿#if ANDROID31_0_OR_GREATER
 using Android.Content;
 using Android.Gms.Location;
+using NBNavApp.Common.Navigation;
 
-namespace NBNavApp;
+namespace NBNavApp.Platforms.Android;
 
 [BroadcastReceiver(Enabled = true, Exported = false)]
 public class LocationUpdatesReceiver : BroadcastReceiver

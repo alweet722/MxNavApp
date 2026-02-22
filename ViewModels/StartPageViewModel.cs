@@ -8,7 +8,7 @@ using System.Windows.Input;
 
 namespace NBNavApp.ViewModels;
 
-public class StartPageViewModel : INotifyPropertyChanged
+public partial class StartPageViewModel : INotifyPropertyChanged
 {
     readonly BleSender bleSender;
     readonly BleStateMonitor bleStateMonitor;

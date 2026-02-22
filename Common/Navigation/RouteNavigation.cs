@@ -62,7 +62,6 @@ public class RouteNavigation
     static readonly HttpClient client = new();
 
     public static async Task<OrsRoutingResponse?> GetRoutingResponseAsync(
-        string apiKey,
         double[] start,
         double[] destination,
         string[] avoidFeatures,
@@ -89,7 +88,7 @@ public class RouteNavigation
             };
 
             using HttpRequestMessage req = new(HttpMethod.Post, url);
-            req.Headers.TryAddWithoutValidation("Authorization", apiKey);
+            req.Headers.TryAddWithoutValidation("Authorization", Constants.API_KEY);
             req.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
             using HttpResponseMessage res = await client.SendAsync(req, ct);

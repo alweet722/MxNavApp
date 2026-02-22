@@ -6,6 +6,7 @@ using Android.Gms.Location;
 using Android.OS;
 using Android.Util;
 using AndroidX.Core.App;
+using NBNavApp.Platforms.Android;
 
 namespace NBNavApp;
 

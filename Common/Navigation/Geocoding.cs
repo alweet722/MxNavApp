@@ -11,7 +11,7 @@ internal class AddressGeocoder
 
     static readonly HttpClient client = new();
 
-    public static async Task<(double lat, double lon, string label)?> GeocodeAddress(string apiKey, string address, CancellationToken ct)
+    public static async Task<(double lat, double lon, string label)?> GeocodeAddress(string address, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(address))
         { return null; }
@@ -21,7 +21,7 @@ internal class AddressGeocoder
         string url = $"https://api.openrouteservice.org/geocode/search?text={Uri.EscapeDataString(address)}&size=1";
 
         using HttpRequestMessage req = new(HttpMethod.Get, url);
-        req.Headers.TryAddWithoutValidation("Authorization", apiKey);
+        req.Headers.TryAddWithoutValidation("Authorization", Constants.API_KEY);
         req.Headers.TryAddWithoutValidation("Accept", "application/json");
 
         try
