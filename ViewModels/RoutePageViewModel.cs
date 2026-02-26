@@ -10,6 +10,7 @@ using NBNavApp.Common.Services;
 using NBNavApp.Common.Util;
 using Shiny.BluetoothLE;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows.Input;
 
 namespace NBNavApp.ViewModels;
@@ -549,6 +550,7 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
             double? heading = location.HasBearing ? location.Bearing : null;
             if (heading != null)
             {
+                myLocation.UpdateMyDirection(heading.Value, 0, true);
                 double diff = GeoFunctions.AngleDiffDeg(bearing, heading.Value);
                 wrongWay = wrongWayDetector.Update(location.Speed, dPerp, diff, DateTime.UtcNow);
             }

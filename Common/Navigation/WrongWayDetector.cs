@@ -1,4 +1,6 @@
-﻿namespace NBNavApp.Common.Navigation;
+﻿using System.Diagnostics;
+
+namespace NBNavApp.Common.Navigation;
 
 internal class WrongWayDetector
 {
@@ -16,7 +18,7 @@ internal class WrongWayDetector
             suspectSince = null;
             return false;
         }
-        
+
         if (angleDiffDeg > AngleThresholdDeg)
         {
             suspectSince ??= now;
