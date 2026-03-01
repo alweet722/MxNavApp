@@ -19,6 +19,7 @@ public class MapService
         { MapPointType.Start, null },
         { MapPointType.Destination, null }
     };
+    MyLocationLayer? myLocationLayer;
 
     public MapService(Mapsui.Map map)
     {
@@ -120,6 +121,50 @@ public class MapService
                 map.Layers.Remove(pointLayers[key]);
                 pointLayers[key] = null;
             }
+        }
+    }
+
+    public void InitializeLocationLayer(double latitude, double longitude)
+    {
+        if (myLocationLayer == null)
+        {
+            myLocationLayer = new MyLocationLayer(map)
+            {
+                Enabled = true,
+                IsMoving = true
+            };
+            map.Layers.Add(myLocationLayer);
+        }
+
+        var point = SphericalMercator.FromLonLat(longitude, latitude);
+        myLocationLayer.UpdateMyLocation(point.ToMPoint(), true);
+        map.Refresh();
+    }
+
+    public void UpdateCurrentLocation(double latitude, double longitude, double? bearing = null)
+    {
+        if (myLocationLayer == null)
+        {
+            return;
+        }
+
+        var point = SphericalMercator.FromLonLat(longitude, latitude);
+        myLocationLayer.UpdateMyLocation(point.ToMPoint(), true);
+
+        if (bearing.HasValue)
+        {
+            myLocationLayer.UpdateMyDirection(bearing.Value, 0, true);
+        }
+
+        map.Refresh();
+    }
+
+    public void ClearCurrentLocation()
+    {
+        if (myLocationLayer != null)
+        {
+            map.Layers.Remove(myLocationLayer);
+            myLocationLayer = null;
         }
     }
 }

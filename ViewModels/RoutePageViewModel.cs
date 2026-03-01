@@ -1,16 +1,12 @@
 ﻿using Mapsui;
 using Mapsui.Extensions;
-using Mapsui.Layers;
 using Mapsui.Projections;
 using Mapsui.Tiling;
 using NBNavApp.Common.Ble;
-using NBNavApp.Common.Messages;
 using NBNavApp.Common.Navigation;
 using NBNavApp.Common.Services;
-using NBNavApp.Common.Util;
 using Shiny.BluetoothLE;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Windows.Input;
 
 namespace NBNavApp.ViewModels;
@@ -23,30 +19,13 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
         Destination
     }
 
-    readonly NavigationManager nav;
-    readonly BleSender bleSender;
-    readonly OffRouteDetector offRoute = new();
-    readonly WrongWayDetector wrongWayDetector = new();
-    readonly NavState navState = new();
-    readonly MovingAverage movingAverage = new();
+    readonly NavigationService navigationService;
     readonly MapService mapService;
     readonly BleStateMonitor bleStateMonitor;
 
-    MyLocationLayer? myLocation;
-
-    List<(double lon, double lat)>? route;
-    List<(double x, double y)>? routeXY;
-    List<PreparedStep>? preparedSteps;
+    (double lat, double lon) startLocation;
+    (double lat, double lon) destLocation;
     List<string> avoidFeatures = new();
-
-    double[]? totalDist;
-    double[]? segLen;
-
-    int locUpdateCounter = 0;
-    bool isStopping;
-    const double lookahead = 25;
-    TimeSpan timeToDest;
-    SpeedState speedState;
 
     bool isRouting;
     public bool IsRouting
@@ -144,7 +123,6 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
         }
     }
 
-    (double lat, double lon) startLocation;
     public (double lat, double lon) StartLocation
     {
         get => startLocation;
@@ -156,7 +134,6 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
         }
     }
 
-    (double lat, double lon) destLocation;
     public (double lat, double lon) DestLocation
     {
         get => destLocation;
@@ -183,10 +160,9 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
     void OnPropertyChanged(string n) => PropertyChanged?.Invoke(this, new(n));
 
-    public RoutePageViewModel(NavigationManager nav, BleSender bleSender, BleStateMonitor bleStateMonitor)
+    public RoutePageViewModel(NavigationService navigationService, BleStateMonitor bleStateMonitor, BleConnectionState bleConnectionState)
     {
-        this.nav = nav;
-        this.bleSender = bleSender;
+        this.navigationService = navigationService;
         this.bleStateMonitor = bleStateMonitor;
 
         mapService = new(Map);
@@ -199,12 +175,12 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
 
         RouteCommand = new Command(
             execute: async () => await RouteAsync(),
-            canExecute: () => StartLocation != (0, 0) && DestLocation != (0, 0) && !IsRouting && !IsDriving
+            canExecute: () => StartLocation != (0, 0) && DestLocation != (0, 0) && !IsDriving && !IsRouting
             );
 
         DriveCommand = new Command(
             execute: async () => await StartDriveAsync(),
-            canExecute: () => route != null && !IsDriving
+            canExecute: () => navigationService.HasRoute && !IsDriving
             );
 
         StopCommand = new Command(
@@ -217,11 +193,12 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
         (double x, double y) defaultCenter = SphericalMercator.FromLonLat(13.723076680216279, 51.05120761645636);
         Map.Navigator.CenterOnAndZoomTo(defaultCenter.ToMPoint(), 10);
 
-        this.nav = nav;
-        this.bleSender = bleSender;
-
-        OffRouteDetector.GoneOffRoute += OnGoneOffRoute;
-        OffRouteDetector.ReturnedOnRoute += OnReturnedOnRoute;
+        navigationService.Initialize(new NavigationManager(bleConnectionState));
+        navigationService.LocationUpdated += OnLocationUpdated;
+        navigationService.NavigationStarted += (s, e) => OnNavigationStarted();
+        navigationService.NavigationStopped += (s, e) => OnNavigationStopped();
+        navigationService.NavigationPaused += (s, e) => OnNavigationPaused();
+        navigationService.RouteUpdated += OnRouteUpdated;
 
         bleStateMonitor.PeripheralStateChanged += OnPeripheralStateChanged;
     }
@@ -256,21 +233,6 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
 
         await StopDriveAsync(0);
         await Shell.Current.GoToAsync("..");
-    }
-
-    private void OnGoneOffRoute(object? sender, EventArgs e)
-    {
-        MainThread.BeginInvokeOnMainThread(async () =>
-        {
-            navState.RouteState = RouteState.OFF_ROUTE;
-            StateMessage msg = new(navState.RouteState);
-            await bleSender.WriteCharacteristicAsync(msg);
-        });
-    }
-
-    private void OnReturnedOnRoute(object? sender, EventArgs e)
-    {
-        navState.RouteState = RouteState.NORMAL;
     }
 
     private void ShowPointOnMap(PointType type, double lat, double lon)
@@ -308,7 +270,7 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
         if (location == null)
         { return; }
 
-        StartLocation = navState.Start = (location.Latitude, location.Longitude);
+        StartLocation = (location.Latitude, location.Longitude);
         ShowPointOnMap(PointType.Start, location.Latitude, location.Longitude);
 
         StartAddressText = $"{location.Latitude:F6}°, {location.Longitude:F6}°";
@@ -330,12 +292,12 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
         switch (pointType)
         {
             case PointType.Destination:
-                DestLocation = navState.Destination = (geocode.Value.lat, geocode.Value.lon);
+                DestLocation = (geocode.Value.lat, geocode.Value.lon);
                 DestAddressText = geocode.Value.label;
                 ShowPointOnMap(PointType.Destination, geocode.Value.lat, geocode.Value.lon);
                 break;
             case PointType.Start:
-                StartLocation = navState.Start = (geocode.Value.lat, geocode.Value.lon);
+                StartLocation = (geocode.Value.lat, geocode.Value.lon);
                 StartAddressText = geocode.Value.label;
                 ShowPointOnMap(PointType.Start, geocode.Value.lat, geocode.Value.lon);
                 break;
@@ -359,8 +321,8 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
         NotifyUi();
 
         var routingResponse = await RouteNavigation.GetRoutingResponseAsync(
-            [navState.Start.lon, navState.Start.lat],
-            [navState.Destination.lon, navState.Destination.lat],
+            [startLocation.lon, startLocation.lat],
+            [destLocation.lon, destLocation.lat],
             avoidFeatures.ToArray(),
             cts.Token);
 
@@ -368,126 +330,54 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
         {
             IsRouting = false;
             NotifyUi();
-
             return;
         }
 
-        route = RouteNavigation.GetRoute(routingResponse);
+        var route = RouteNavigation.GetRoute(routingResponse);
         if (route == null)
         {
             IsRouting = false;
             NotifyUi();
-
             return;
         }
 
         ShowRoute(route);
 
         var steps = RouteNavigation.GetRoutingSteps(routingResponse);
-        (totalDist, segLen) = RouteNavigation.BuildTotalDist(route);
-        preparedSteps = RouteNavigation.PrepareSteps(steps, totalDist);
-        routeXY = GeoFunctions.ToMercator(route);
+        var (totalDist, segLen) = RouteNavigation.BuildTotalDist(route);
+        var preparedSteps = RouteNavigation.PrepareSteps(steps, totalDist);
+        var routeXY = GeoFunctions.ToMercator(route);
 
-        timeToDest = TimeSpan.FromSeconds(RouteNavigation.GetTimeToDest(routingResponse));
+        var timeToDest = TimeSpan.FromSeconds(RouteNavigation.GetTimeToDest(routingResponse));
         DistToDestText = $"{RouteNavigation.GetDistance(routingResponse) / 1000:F1} km";
         TimeToDestText = $"{timeToDest.Hours}:{timeToDest.Minutes}";
+
+        navigationService.SetRoute(route, routeXY, totalDist, segLen, preparedSteps, timeToDest, startLocation, destLocation, avoidFeatures);
 
         IsRouting = false;
         NotifyUi();
     }
 
-    private async Task RerouteAsync(
-    double[] newStart,
-    double[] dest,
-    string[] avoid)
-    {
-        CancellationTokenSource cts = new(TimeSpan.FromSeconds(15));
-        var res = await RouteNavigation.GetRoutingResponseAsync(newStart, dest, avoid, cts.Token);
-        if (res == null)
-        { return; }
-
-        var route = RouteNavigation.GetRoute(res);
-        if (route == null)
-        { return; }
-
-        var steps = RouteNavigation.GetRoutingSteps(res);
-        (totalDist, segLen) = RouteNavigation.BuildTotalDist(route);
-        preparedSteps = RouteNavigation.PrepareSteps(steps, totalDist);
-        routeXY = GeoFunctions.ToMercator(route);
-
-        navState.CurrentStepIndex = 0;
-        navState.LastSegIndex = 0;
-
-        ShowRoute(route);
-    }
-
     private async Task StartDriveAsync()
     {
-        if (totalDist == null)
+        if (!navigationService.HasRoute)
         { return; }
 
-        if (!bleSender.ConnectionState.IsConnected)
-        {
-            await MauiAlertService.ShowAlertAsync("BLE", "Connection lost.");
-            return;
-        }
-
-        try
-        { await Geolocation.GetLocationAsync(); }
-        catch (FeatureNotEnabledException)
-        {
-            await MauiAlertService.ShowAlertAsync("Navigation", "Geolocation is switched off.");
-            return;
-        }
-
-        myLocation ??= new(Map, SphericalMercator.FromLonLat(navState.Start.lon, navState.Start.lat).ToMPoint());
-        Map.Layers.Add(myLocation);
-        Map.Navigator.CenterOnAndZoomTo(myLocation.MyLocation, 1, 1000, Mapsui.Animations.Easing.SinInOut);
-        Map.Refresh();
-
-        try
-        { await nav.StartNavigationAsync(); }
-        catch (Exception ex)
-        {
-            await MauiAlertService.ShowAlertAsync("Navigation", ex.Message);
-            return;
-        }
-
-#if ANDROID31_0_OR_GREATER
-        LocationBus.LocationUpdated += OnLocationUpdated;
-#endif
-
-        EtaMessage etaMsg = new(timeToDest);
-        await bleSender.WriteCharacteristicAsync(etaMsg);
-
-        DistMessage distMsg = new((uint)totalDist[^1]);
-        await bleSender.WriteCharacteristicAsync(distMsg);
-
-        IsDriving = true;
-        NotifyUi();
+        await navigationService.StartNavigationAsync();
     }
 
     private async Task PauseDriveAsync()
     {
-        nav.StopNavigation();
-        IsDriving = false;
-
-        NotifyUi();
-        await bleSender.WriteCharacteristicAsync(new ResetMessage());
+        await navigationService.PauseNavigationAsync();
     }
 
     private async Task StopDriveAsync(int delay = 0)
     {
-        nav.StopNavigation();
-        IsDriving = false;
+        await navigationService.StopNavigationAsync(delay);
+
         mapService.ClearRoute();
-
         mapService.ClearPoints();
-
-        myLocation?.Enabled = false;
-
-        myLocation = null;
-        route = null;
+        mapService.ClearCurrentLocation();
 
         StartAddressText = string.Empty;
         DestAddressText = string.Empty;
@@ -500,161 +390,62 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
         StartLocation = (0, 0);
         DestLocation = (0, 0);
 
-#if ANDROID31_0_OR_GREATER
-        LocationBus.LocationUpdated -= OnLocationUpdated;
-#endif
-
         NotifyUi();
-
-        if (!bleSender.ConnectionState.IsConnected)
-        { return; }
-
-        await Task.Delay(TimeSpan.FromSeconds(delay));
-        await bleSender.WriteCharacteristicAsync(new ResetMessage());
     }
 
-#if ANDROID31_0_OR_GREATER
-    private void OnLocationUpdated(Android.Locations.Location location)
+    private void OnLocationUpdated(object? sender, LocationUpdateEventArgs e)
     {
-        if (route == null || routeXY == null || totalDist == null || segLen == null || preparedSteps == null)
-        { return; }
-
-        MainThread.BeginInvokeOnMainThread(async () =>
+        MainThread.BeginInvokeOnMainThread(() =>
         {
-            if (!bleSender.ConnectionState.IsConnected)
+            mapService.UpdateCurrentLocation(e.Latitude, e.Longitude, e.Bearing);
+            DistToDestText = $"{e.Remaining / 1000:F1} km";
+
+            // Only update ETA when it's provided (every 20 location updates)
+            if (e.ETA.HasValue)
             {
-                await MauiAlertService.ShowAlertAsync("BLE", "Connection lost.");
-                await StopDriveAsync();
-                return;
+                TimeToDestText = $"{e.ETA.Value.Hours}:{e.ETA.Value.Minutes:D2}";
             }
-
-            bool wrongWay = false;
-            CancellationTokenSource cts = new(TimeSpan.FromSeconds(5));
-
-            if (myLocation == null)
-            { return; }
-            myLocation.IsMoving = true;
-            var currentCartesianLoc = SphericalMercator.FromLonLat(location.Longitude, location.Latitude);
-            myLocation.UpdateMyLocation(currentCartesianLoc.ToMPoint(), true);
-
-            var (s, dPerp) = RouteNavigation.MatchRouteToNextStep(
-                (currentCartesianLoc.x, currentCartesianLoc.y),
-                routeXY,
-                totalDist,
-                segLen,
-                preparedSteps,
-                navState);
-
-            var (idx, nextIdx, distToNext, exit) = RouteNavigation.ComputeStepAndDistance(s, preparedSteps, navState);
-            var nextStep = preparedSteps[nextIdx].type;
-
-            var pNow = RouteNavigation.PointAtS(route, totalDist, segLen, s);
-            var pFwd = RouteNavigation.PointAtS(route, totalDist, segLen, s + lookahead);
-
-            double bearing = GeoFunctions.BearingDegrees(pNow, pFwd);
-            double? heading = location.HasBearing ? location.Bearing : null;
-            if (heading != null)
-            {
-                myLocation.UpdateMyDirection(heading.Value, 0, true);
-                double diff = GeoFunctions.AngleDiffDeg(bearing, heading.Value);
-                wrongWay = wrongWayDetector.Update(location.Speed, dPerp, diff, DateTime.UtcNow);
-            }
-
-            bool reroute = offRoute.Update(dPerp, location.Accuracy, DateTime.UtcNow, out string reason);
-
-            switch (navState.RouteState)
-            {
-                case RouteState.NORMAL:
-                    if (wrongWay)
-                    {
-                        NavMessage uturnMsg = new(Instruction.U_TURN, uint.MaxValue, (byte)exit);
-                        await bleSender.WriteCharacteristicAsync(uturnMsg);
-                        return;
-                    }
-                    break;
-                case RouteState.OFF_ROUTE:
-                    if (reroute)
-                    { navState.RouteState = RouteState.REROUTE; }
-                    return;
-                case RouteState.REROUTE:
-                    navState.Start = (location.Latitude, location.Longitude);
-                    try
-                    {
-                        await RerouteAsync(
-                            [navState.Start.lon, navState.Start.lat],
-                            [navState.Destination.lon, navState.Destination.lat],
-                            avoidFeatures.ToArray());
-                        
-                        (s, dPerp) = RouteNavigation.MatchRouteToNextStep(
-                            (currentCartesianLoc.x, currentCartesianLoc.y),
-                            routeXY,
-                            totalDist,
-                            segLen,
-                            preparedSteps,
-                            navState);
-                    }
-                    catch (TaskCanceledException)
-                    {
-                        nav.StopNavigation();
-
-                        IsDriving = false;
-                        NotifyUi();
-                        return;
-                    }
-
-                    navState.RouteState = RouteState.NORMAL;
-                    break;
-            }
-            StateMessage stateMsg = new(navState.RouteState);
-            await bleSender.WriteCharacteristicAsync(stateMsg);
-
-            double remaining = Math.Max(0, totalDist[^1] - s);
-            double tol = Math.Max(10.0, location.Accuracy);
-
-            DistMessage distMsg = new((uint)remaining);
-            await bleSender.WriteCharacteristicAsync(distMsg);
-
-            DistToDestText = $"{remaining / 1000:F1} km";
-
-            if (isStopping)
-            { return; }
-            if (remaining <= tol)
-            {
-                isStopping = true;
-                NavMessage endMsg = new(Instruction.END, 0, 0);
-                await bleSender.WriteCharacteristicAsync(endMsg);
-
-                await StopDriveAsync(5);
-                isStopping = false;
-                return;
-            }
-
-            NavMessage navMsg = new(nextStep, (uint)distToNext, (byte)exit);
-            await bleSender.WriteCharacteristicAsync(navMsg);
-
-            Microsoft.Maui.Devices.Sensors.Location mLoc = GeoFunctions.ToMauiLocation(location);
-
-            var (speed, next) = RouteNavigation.ComputeSpeed(mLoc, speedState);
-            speedState = next;
-            if (speed < 0.5)
-            { return; }
-
-            var avgSpeed = movingAverage.Compute(speed);
-
-            locUpdateCounter++;
-            if (locUpdateCounter < 20)
-            { return; }
-
-            locUpdateCounter = 0;
-
-            var eta = remaining / avgSpeed;
-
-            timeToDest = TimeSpan.FromSeconds(eta);
-            EtaMessage etaMsg = new(timeToDest);
-            await bleSender.WriteCharacteristicAsync(etaMsg);
-
-            TimeToDestText = $"{timeToDest.Hours}:{timeToDest.Minutes:D2}";
         });
     }
-#endif
+
+    private void OnNavigationStarted()
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            var navState = navigationService.GetNavigationState();
+            if (navState != null)
+            {
+                mapService.InitializeLocationLayer(navState.Start.lat, navState.Start.lon);
+            }
+
+            IsDriving = true;
+            NotifyUi();
+        });
+    }
+
+    private void OnNavigationPaused()
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            IsDriving = false;
+            NotifyUi();
+        });
+    }
+
+    private void OnNavigationStopped()
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            IsDriving = false;
+            NotifyUi();
+        });
+    }
+
+    private void OnRouteUpdated(object? sender, List<(double lon, double lat)> updatedRoute)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            ShowRoute(updatedRoute);
+        });
+    }
 }

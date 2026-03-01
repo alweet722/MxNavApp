@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using NBNavApp.Common.Ble;
 using NBNavApp.Common.Interfaces;
 using NBNavApp.Common.Navigation;
+using NBNavApp.Common.Services;
 using NBNavApp.Common.Util;
 using NBNavApp.Pages;
 using NBNavApp.ViewModels;
@@ -36,6 +37,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<BleStateMonitor>();
         builder.Services.AddSingleton<NavigationManager>();
         builder.Services.AddSingleton<BleSender>();
+        builder.Services.AddSingleton<NavigationService>();
 
 #if DEBUG
         builder.Logging.AddDebug();
