@@ -44,7 +44,7 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
 
     int locUpdateCounter = 0;
     bool isStopping;
-    const double lookahead = 40.0;
+    const double lookahead = 25;
     TimeSpan timeToDest;
     SpeedState speedState;
 
@@ -220,9 +220,6 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
         this.nav = nav;
         this.bleSender = bleSender;
 
-#if ANDROID31_0_OR_GREATER
-        LocationBus.LocationUpdated += OnLocationUpdated;
-#endif
         OffRouteDetector.GoneOffRoute += OnGoneOffRoute;
         OffRouteDetector.ReturnedOnRoute += OnReturnedOnRoute;
 
@@ -456,6 +453,10 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
             return;
         }
 
+#if ANDROID31_0_OR_GREATER
+        LocationBus.LocationUpdated += OnLocationUpdated;
+#endif
+
         EtaMessage etaMsg = new(timeToDest);
         await bleSender.WriteCharacteristicAsync(etaMsg);
 
@@ -498,6 +499,10 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
 
         StartLocation = (0, 0);
         DestLocation = (0, 0);
+
+#if ANDROID31_0_OR_GREATER
+        LocationBus.LocationUpdated -= OnLocationUpdated;
+#endif
 
         NotifyUi();
 
@@ -573,7 +578,6 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
                     return;
                 case RouteState.REROUTE:
                     navState.Start = (location.Latitude, location.Longitude);
-
                     try
                     {
                         await RerouteAsync(

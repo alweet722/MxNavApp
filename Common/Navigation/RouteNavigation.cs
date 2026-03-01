@@ -223,7 +223,7 @@ public class RouteNavigation
         if (finalGoalIndex < 0)
         { finalGoalIndex = steps.Count - 1; }
 
-        while (state.CurrentStepIndex < steps.Count - 1 && s > steps[state.CurrentStepIndex].coords[1] + 10)
+        while (state.CurrentStepIndex < steps.Count - 1 && s > steps[state.CurrentStepIndex].coords[1] + 20)
         { state.CurrentStepIndex++; }
 
         while (state.CurrentStepIndex > 0 && s < steps[state.CurrentStepIndex].coords[0] - 20)
