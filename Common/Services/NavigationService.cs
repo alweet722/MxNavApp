@@ -7,12 +7,8 @@ namespace NBNavApp.Common.Services;
 
 public class LocationUpdateEventArgs : EventArgs
 {
-    public double S { get; set; }
-    public double DPerp { get; set; }
     public double Remaining { get; set; }
     public TimeSpan? ETA { get; set; }
-    public int NextStepIndex { get; set; }
-    public Instruction NextInstruction { get; set; }
     public double Latitude { get; set; }
     public double Longitude { get; set; }
     public double? Bearing { get; set; }
@@ -23,7 +19,6 @@ public class NavigationService
     readonly BleSender bleSender;
     readonly OffRouteDetector offRoute = new();
     readonly WrongWayDetector wrongWayDetector = new();
-    readonly MovingAverage movingAverage = new();
 
     NavigationManager? navigationManager;
 
@@ -49,6 +44,8 @@ public class NavigationService
         get => isNavigating;
         private set => isNavigating = value;
     }
+
+    public bool HasRoute => route != null;
 
     public event EventHandler<LocationUpdateEventArgs>? LocationUpdated;
     public event EventHandler<EventArgs>? NavigationStarted;
@@ -240,27 +237,12 @@ public class NavigationService
 
             bool reroute = offRoute.Update(dPerp, location.Accuracy, DateTime.UtcNow, out string reason);
 
-            // Raise location updated event for UI updates (marker position, bearing)
-            // This is invoked early so the marker updates on every location
-            double remaining = Math.Max(0, totalDist[^1] - s);
-            LocationUpdated?.Invoke(this, new LocationUpdateEventArgs
-            {
-                S = s,
-                DPerp = dPerp,
-                Remaining = remaining,
-                ETA = null,
-                NextStepIndex = nextIdx,
-                NextInstruction = nextStep,
-                Latitude = location.Latitude,
-                Longitude = location.Longitude,
-                Bearing = heading
-            });
+            StateMessage stateMsg = new(navState.RouteState);
+            await bleSender.WriteCharacteristicAsync(stateMsg);
 
             switch (navState.RouteState)
             {
                 case RouteState.NORMAL:
-                    StateMessage stateMsg = new(navState.RouteState);
-                    await bleSender.WriteCharacteristicAsync(stateMsg);
                     if (wrongWay)
                     {
                         NavMessage uturnMsg = new(Instruction.U_TURN, uint.MaxValue, (byte)exit);
@@ -269,16 +251,12 @@ public class NavigationService
                     }
                     break;
                 case RouteState.OFF_ROUTE:
-                    stateMsg = new(navState.RouteState);
-                    await bleSender.WriteCharacteristicAsync(stateMsg);
                     if (reroute)
                     {
                         navState.RouteState = RouteState.REROUTE;
                     }
                     return;
                 case RouteState.REROUTE:
-                    stateMsg = new(navState.RouteState);
-                    await bleSender.WriteCharacteristicAsync(stateMsg);
                     navState.Start = (location.Latitude, location.Longitude);
                     try
                     {
@@ -305,6 +283,7 @@ public class NavigationService
                     break;
             }
 
+            double remaining = Math.Max(0, totalDist[^1] - s);
             double tol = Math.Max(10.0, location.Accuracy);
 
             DistMessage distMsg = new((uint)remaining);
@@ -338,30 +317,23 @@ public class NavigationService
                 return;
             }
 
-            var avgSpeed = movingAverage.Compute(speed);
+            var avgSpeed = MovingAverage.Compute(speed);
+            System.Diagnostics.Debug.WriteLine(speed);
 
             locUpdateCounter++;
-            if (locUpdateCounter < 20)
+            if (locUpdateCounter >= 20)
             {
-                return;
+                var eta = remaining / avgSpeed;
+                timeToDest = TimeSpan.FromSeconds(eta);
+                EtaMessage etaMsg = new(timeToDest);
+                await bleSender.WriteCharacteristicAsync(etaMsg);
+                locUpdateCounter = 0;
             }
 
-            locUpdateCounter = 0;
-
-            var eta = remaining / avgSpeed;
-            timeToDest = TimeSpan.FromSeconds(eta);
-            EtaMessage etaMsg = new(timeToDest);
-            await bleSender.WriteCharacteristicAsync(etaMsg);
-
-            // Update location event with ETA info
             LocationUpdated?.Invoke(this, new LocationUpdateEventArgs
             {
-                S = s,
-                DPerp = dPerp,
                 Remaining = remaining,
                 ETA = timeToDest,
-                NextStepIndex = nextIdx,
-                NextInstruction = nextStep,
                 Latitude = location.Latitude,
                 Longitude = location.Longitude,
                 Bearing = heading
@@ -400,7 +372,6 @@ public class NavigationService
             navState.LastSegIndex = 0;
         }
 
-        // Notify that the route has been updated
         RouteUpdated?.Invoke(this, route);
     }
 
@@ -414,6 +385,6 @@ public class NavigationService
         navState?.RouteState = RouteState.NORMAL;
     }
 
-    public NavState? GetNavigationState() => navState;
-    public bool HasRoute => route != null;
+    public NavState? GetNavigationState()
+    { return navState; }
 }

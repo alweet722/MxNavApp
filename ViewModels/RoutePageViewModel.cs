@@ -175,12 +175,12 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
 
         RouteCommand = new Command(
             execute: async () => await RouteAsync(),
-            canExecute: () => StartLocation != (0, 0) && DestLocation != (0, 0) && !IsDriving && !IsRouting
+            canExecute: () => StartLocation != (0, 0) && DestLocation != (0, 0) && !IsRouting && !IsDriving 
             );
 
         DriveCommand = new Command(
             execute: async () => await StartDriveAsync(),
-            canExecute: () => navigationService.HasRoute && !IsDriving
+            canExecute: () => navigationService.HasRoute && !IsDriving 
             );
 
         StopCommand = new Command(

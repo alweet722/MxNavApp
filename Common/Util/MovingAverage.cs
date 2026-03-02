@@ -1,12 +1,12 @@
 ﻿namespace NBNavApp.Common.Util;
 
-internal class MovingAverage
+internal static class MovingAverage
 {
-    Queue<double> samples = new();
-    private double accumSum;
-    public int WindowSize { get; set; } = 20;
+    static readonly Queue<double> samples = new();
+    static double accumSum;
+    public static int WindowSize { get; set; } = 20;
 
-    public double Compute(double newSample)
+    public static double Compute(double newSample)
     {
         accumSum += newSample;
         samples.Enqueue(accumSum);

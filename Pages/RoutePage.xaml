@@ -16,7 +16,7 @@
     <Grid 
         Padding="30,25,30,25" 
         RowSpacing="10"
-        RowDefinitions="30,50,30,50,30,30,50,*,20,20,50" 
+        RowDefinitions="30,50,30,50,30,30,50,*,50,50" 
         ColumnDefinitions="290,*" 
         HorizontalOptions="Fill">
         <Label 
@@ -94,37 +94,44 @@
             Grid.Row="7"
             Grid.ColumnSpan="2"
             Map="{Binding Map}"/>
-        <Label
-            Grid.Row="8"
-            Grid.Column="0"
-            Text="Distance:"
-            FontSize="14"/>
-        <Label
-            Grid.Row="9"
-            Grid.Column="0"
-            Text="Time to destination:"
-            FontSize="14"/>
-        <Label
-            Grid.Row="8"
-            Grid.Column="1"
-            Text="{Binding DistToDestText}"
-            FontSize="14"
-            HorizontalOptions="End"/>
-        <Label
-            Grid.Row="9"
-            Grid.Column="1"
-            Text="{Binding TimeToDestText}"
-            FontSize="14"
-            HorizontalOptions="End"/>
+        <Grid
+            RowSpacing="10"
+            ColumnDefinitions="285, Auto"
+            RowDefinitions="20,20"
+            Grid.RowSpan="2"
+            Grid.Row="8">
+            <Label
+                Grid.Row="0"
+                Grid.Column="0"
+                Text="Distance:"
+                FontSize="14"/>
+            <Label
+                Grid.Row="1"
+                Grid.Column="0"
+                Text="Time to destination:"
+                FontSize="14"/>
+            <Label
+                Grid.Row="0"
+                Grid.Column="1"
+                Text="{Binding DistToDestText}"
+                FontSize="14"
+                HorizontalOptions="End"/>
+            <Label
+                Grid.Row="1"
+                Grid.Column="1"
+                Text="{Binding TimeToDestText}"
+                FontSize="14"
+                HorizontalOptions="End"/>
+            </Grid>
         <Button
-            Grid.Row="10"
+            Grid.Row="9"
             Grid.Column="0"
             Text="Drive"
             Command="{Binding DriveCommand}"
             HorizontalOptions="Start"
             WidthRequest="120"/>
         <Button
-            Grid.Row="10"
+            Grid.Row="9"
             Grid.Column="1"
             Text="Stop"
             Command="{Binding StopCommand}"

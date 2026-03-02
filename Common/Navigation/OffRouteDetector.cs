@@ -9,7 +9,7 @@ public class OffRouteDetector
 
     public double MinDistanceMeters { get; set; } = 25;
     public double AccuracyFactor { get; set; } = 2.5;
-    public TimeSpan ConfirmTime { get; set; } = TimeSpan.FromSeconds(10);
+    public TimeSpan ConfirmTime { get; set; } = TimeSpan.FromSeconds(5);
     public TimeSpan Cooldown { get; set; } = TimeSpan.FromSeconds(30);
 
     public static event EventHandler? GoneOffRoute;
