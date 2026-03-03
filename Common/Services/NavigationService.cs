@@ -348,19 +348,19 @@ public class NavigationService
         string[] avoid)
     {
         CancellationTokenSource cts = new(TimeSpan.FromSeconds(15));
-        var res = await RouteNavigation.GetRoutingResponseAsync(newStart, dest, avoid, cts.Token);
+        var res = await OpenRouteServiceFunctions.GetRoutingResponseAsync(newStart, dest, avoid, cts.Token);
         if (res == null)
         {
             return;
         }
 
-        var newRoute = RouteNavigation.GetRoute(res);
+        var newRoute = OpenRouteServiceFunctions.GetRoute(res);
         if (newRoute == null)
         {
             return;
         }
 
-        var steps = RouteNavigation.GetRoutingSteps(res);
+        var steps = OpenRouteServiceFunctions.GetRoutingSteps(res);
         (totalDist, segLen) = RouteNavigation.BuildTotalDist(newRoute);
         preparedSteps = RouteNavigation.PrepareSteps(steps, totalDist);
         routeXY = GeoFunctions.ToMercator(newRoute);

@@ -21,7 +21,6 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
 
     readonly NavigationService navigationService;
     readonly MapService mapService;
-    readonly BleStateMonitor bleStateMonitor;
 
     (double lat, double lon) startLocation;
     (double lat, double lon) destLocation;
@@ -163,7 +162,6 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
     public RoutePageViewModel(NavigationService navigationService, BleStateMonitor bleStateMonitor, BleConnectionState bleConnectionState)
     {
         this.navigationService = navigationService;
-        this.bleStateMonitor = bleStateMonitor;
 
         mapService = new(Map);
 
@@ -175,12 +173,12 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
 
         RouteCommand = new Command(
             execute: async () => await RouteAsync(),
-            canExecute: () => StartLocation != (0, 0) && DestLocation != (0, 0) && !IsRouting && !IsDriving 
+            canExecute: () => StartLocation != (0, 0) && DestLocation != (0, 0) && !IsRouting && !IsDriving
             );
 
         DriveCommand = new Command(
             execute: async () => await StartDriveAsync(),
-            canExecute: () => navigationService.HasRoute && !IsDriving 
+            canExecute: () => navigationService.HasRoute && !IsDriving
             );
 
         StopCommand = new Command(
@@ -205,12 +203,13 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
 
     private void OnPeripheralStateChanged(object sender, BleStateEventArgs e)
     {
-        if (e.State != ConnectionState.Disconnected)
-        { return; }
-        MainThread.BeginInvokeOnMainThread(async () =>
+        if (e.State == ConnectionState.Disconnected)
         {
-            await StopDriveAsync();
-        });
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                await StopDriveAsync();
+            });
+        }
     }
 
     public void NotifyUi()
@@ -313,14 +312,14 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
         avoidFeatures = new();
 
         if (AvoidHighways)
-        { avoidFeatures.Add(RouteNavigation.AvoidFeatures.highways.ToString()); }
+        { avoidFeatures.Add(OpenRouteServiceFunctions.AvoidFeatures.highways.ToString()); }
         if (AvoidToll)
-        { avoidFeatures.Add(RouteNavigation.AvoidFeatures.tollways.ToString()); }
+        { avoidFeatures.Add(OpenRouteServiceFunctions.AvoidFeatures.tollways.ToString()); }
 
         IsRouting = true;
         NotifyUi();
 
-        var routingResponse = await RouteNavigation.GetRoutingResponseAsync(
+        var routingResponse = await OpenRouteServiceFunctions.GetRoutingResponseAsync(
             [startLocation.lon, startLocation.lat],
             [destLocation.lon, destLocation.lat],
             avoidFeatures.ToArray(),
@@ -333,7 +332,7 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
             return;
         }
 
-        var route = RouteNavigation.GetRoute(routingResponse);
+        var route = OpenRouteServiceFunctions.GetRoute(routingResponse);
         if (route == null)
         {
             IsRouting = false;
@@ -343,13 +342,13 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
 
         ShowRoute(route);
 
-        var steps = RouteNavigation.GetRoutingSteps(routingResponse);
+        var steps = OpenRouteServiceFunctions.GetRoutingSteps(routingResponse);
         var (totalDist, segLen) = RouteNavigation.BuildTotalDist(route);
         var preparedSteps = RouteNavigation.PrepareSteps(steps, totalDist);
         var routeXY = GeoFunctions.ToMercator(route);
 
-        var timeToDest = TimeSpan.FromSeconds(RouteNavigation.GetTimeToDest(routingResponse));
-        DistToDestText = $"{RouteNavigation.GetDistance(routingResponse) / 1000:F1} km";
+        var timeToDest = TimeSpan.FromSeconds(OpenRouteServiceFunctions.GetTimeToDest(routingResponse));
+        DistToDestText = $"{OpenRouteServiceFunctions.GetDistance(routingResponse) / 1000:F1} km";
         TimeToDestText = $"{timeToDest.Hours}:{timeToDest.Minutes}";
 
         navigationService.SetRoute(route, routeXY, totalDist, segLen, preparedSteps, timeToDest, startLocation, destLocation, avoidFeatures);
