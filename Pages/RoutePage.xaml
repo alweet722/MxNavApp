@@ -96,7 +96,7 @@
             Map="{Binding Map}"/>
         <Grid
             RowSpacing="10"
-            ColumnDefinitions="285, Auto"
+            ColumnDefinitions="250, 100"
             RowDefinitions="20,20"
             Grid.RowSpan="2"
             Grid.Row="8">
