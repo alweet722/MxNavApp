@@ -17,7 +17,7 @@ public class LocationUpdateEventArgs : EventArgs
 public class NavigationService
 {
     readonly BleSender bleSender;
-    readonly OffRouteDetector offRoute = new();
+    readonly OffRouteDetector offRouteDetector = new();
     readonly WrongWayDetector wrongWayDetector = new();
 
     NavigationManager? navigationManager;
@@ -58,6 +58,8 @@ public class NavigationService
         this.bleSender = bleSender;
         OffRouteDetector.GoneOffRoute += OnGoneOffRoute;
         OffRouteDetector.ReturnedOnRoute += OnReturnedOnRoute;
+        WrongWayDetector.GoingWrongWay += OnGoingWrongWay;
+        WrongWayDetector.Turned += OnTurned;
     }
 
     public void Initialize(NavigationManager navigationManager)
@@ -111,14 +113,9 @@ public class NavigationService
         }
 
         try
-        {
-            await Geolocation.GetLocationAsync();
-        }
+        { await Geolocation.GetLocationAsync(); }
         catch (FeatureNotEnabledException)
-        {
-            await MauiAlertService.ShowAlertAsync("Navigation", "Geolocation is switched off.");
-            return;
-        }
+        { await MauiAlertService.ShowAlertAsync("Navigation", "Geolocation is switched off."); return; }
 
         if (navState == null)
         {
@@ -133,10 +130,22 @@ public class NavigationService
 #endif
 
         EtaMessage etaMsg = new(timeToDest);
-        await bleSender.WriteCharacteristicAsync(etaMsg);
+        try
+        { await bleSender.WriteCharacteristicAsync(etaMsg); }
+        catch (BleWriteFailedException)
+        {
+            await StopNavigationAsync();
+            return;
+        }
 
         DistMessage distMsg = new((uint)totalDist[^1]);
-        await bleSender.WriteCharacteristicAsync(distMsg);
+        try
+        { await bleSender.WriteCharacteristicAsync(distMsg); }
+        catch (BleWriteFailedException)
+        {
+            await StopNavigationAsync();
+            return;
+        }
 
         IsNavigating = true;
         NavigationStarted?.Invoke(this, EventArgs.Empty);
@@ -145,23 +154,22 @@ public class NavigationService
     public async Task PauseNavigationAsync()
     {
         if (navigationManager == null)
-        {
-            return;
-        }
+        { return; }
 
         navigationManager.StopNavigation();
         IsNavigating = false;
 
-        await bleSender.WriteCharacteristicAsync(new ResetMessage());
+        try
+        { await bleSender.WriteCharacteristicAsync(new ResetMessage()); }
+        catch (BleWriteFailedException)
+        { return; }
         NavigationPaused?.Invoke(this, EventArgs.Empty);
     }
 
     public async Task StopNavigationAsync(int delay = 0)
     {
         if (navigationManager == null)
-        {
-            return;
-        }
+        { return; }
 
         navigationManager.StopNavigation();
         IsNavigating = false;
@@ -184,11 +192,15 @@ public class NavigationService
         }
 
         if (delay > 0)
-        {
-            await Task.Delay(TimeSpan.FromSeconds(delay));
-        }
+        { await Task.Delay(TimeSpan.FromSeconds(delay)); }
 
-        await bleSender.WriteCharacteristicAsync(new ResetMessage());
+        try
+        { await bleSender.WriteCharacteristicAsync(new ResetMessage()); }
+        catch (BleWriteFailedException)
+        {
+            NavigationStopped?.Invoke(this, EventArgs.Empty);
+            return;
+        }
         NavigationStopped?.Invoke(this, EventArgs.Empty);
     }
 
@@ -196,9 +208,7 @@ public class NavigationService
     private async void OnLocationUpdated(Android.Locations.Location location)
     {
         if (route == null || routeXY == null || totalDist == null || segLen == null || preparedSteps == null || navState == null)
-        {
-            return;
-        }
+        { return; }
 
         MainThread.BeginInvokeOnMainThread(async () =>
         {
@@ -210,6 +220,9 @@ public class NavigationService
             }
 
             bool wrongWay = false;
+            bool wrongWayReroute = false;
+            bool reroute = false;
+            DateTime now = DateTime.UtcNow;
 
             var currentCartesianLoc = Mapsui.Projections.SphericalMercator.FromLonLat(location.Longitude, location.Latitude);
 
@@ -232,29 +245,33 @@ public class NavigationService
             if (heading != null)
             {
                 double diff = GeoFunctions.AngleDiffDeg(bearing, heading.Value);
-                wrongWay = wrongWayDetector.Update(location.Speed, dPerp, diff, DateTime.UtcNow);
+                wrongWay = wrongWayDetector.Update(location.Speed, diff, now);
+                wrongWayReroute = wrongWayDetector.UpdateReroute(now);
             }
 
-            bool reroute = offRoute.Update(dPerp, location.Accuracy, DateTime.UtcNow, out string reason);
+            if (!wrongWay)
+            { reroute = offRouteDetector.Update(dPerp, location.Accuracy, now); }
 
             StateMessage stateMsg = new(navState.RouteState);
-            await bleSender.WriteCharacteristicAsync(stateMsg);
+            try
+            { await bleSender.WriteCharacteristicAsync(stateMsg); }
+            catch (BleWriteFailedException)
+            {
+                await StopNavigationAsync();
+                return;
+            }
 
             switch (navState.RouteState)
             {
                 case RouteState.NORMAL:
-                    if (wrongWay)
-                    {
-                        NavMessage uturnMsg = new(Instruction.U_TURN, uint.MaxValue, (byte)exit);
-                        await bleSender.WriteCharacteristicAsync(uturnMsg);
-                        return;
-                    }
+                    break;
+                case RouteState.WRONG_WAY:
+                    if (wrongWayReroute)
+                    { navState.RouteState = RouteState.REROUTE; }
                     break;
                 case RouteState.OFF_ROUTE:
                     if (reroute)
-                    {
-                        navState.RouteState = RouteState.REROUTE;
-                    }
+                    { navState.RouteState = RouteState.REROUTE; }
                     return;
                 case RouteState.REROUTE:
                     navState.Start = (location.Latitude, location.Longitude);
@@ -287,38 +304,54 @@ public class NavigationService
             double tol = Math.Max(10.0, location.Accuracy);
 
             DistMessage distMsg = new((uint)remaining);
-            await bleSender.WriteCharacteristicAsync(distMsg);
-
-            if (isStopping)
+            try
+            { await bleSender.WriteCharacteristicAsync(distMsg); }
+            catch (BleWriteFailedException)
             {
+                await StopNavigationAsync();
                 return;
             }
+
+            if (isStopping)
+            { return; }
 
             if (remaining <= tol)
             {
                 isStopping = true;
                 NavMessage endMsg = new(Instruction.END, 0, 0);
-                await bleSender.WriteCharacteristicAsync(endMsg);
+                try
+                { await bleSender.WriteCharacteristicAsync(endMsg); }
+                catch (BleWriteFailedException)
+                {
+                    await StopNavigationAsync();
+                    isStopping = false;
+                    return;
+                }
 
                 await StopNavigationAsync(5);
                 isStopping = false;
                 return;
             }
 
-            NavMessage navMsg = new(nextStep, (uint)distToNext, (byte)exit);
-            await bleSender.WriteCharacteristicAsync(navMsg);
+            int distToNextRounded = ((int)distToNext).RoundToTens();
+
+            NavMessage navMsg = new(nextStep, (uint)distToNextRounded, (byte)exit);
+            try
+            { await bleSender.WriteCharacteristicAsync(navMsg); }
+            catch (BleWriteFailedException)
+            {
+                await StopNavigationAsync();
+                return;
+            }
 
             Microsoft.Maui.Devices.Sensors.Location mLoc = GeoFunctions.ToMauiLocation(location);
 
             var (speed, next) = RouteNavigation.ComputeSpeed(mLoc, speedState);
             speedState = next;
             if (speed < 0.5)
-            {
-                return;
-            }
+            { return; }
 
             var avgSpeed = MovingAverage.Compute(speed);
-            System.Diagnostics.Debug.WriteLine(speed);
 
             locUpdateCounter++;
             if (locUpdateCounter >= 20)
@@ -326,7 +359,13 @@ public class NavigationService
                 var eta = remaining / avgSpeed;
                 timeToDest = TimeSpan.FromSeconds(eta);
                 EtaMessage etaMsg = new(timeToDest);
-                await bleSender.WriteCharacteristicAsync(etaMsg);
+                try
+                { await bleSender.WriteCharacteristicAsync(etaMsg); }
+                catch (BleWriteFailedException)
+                {
+                    await StopNavigationAsync();
+                    return;
+                }
                 locUpdateCounter = 0;
             }
 
@@ -349,16 +388,10 @@ public class NavigationService
     {
         CancellationTokenSource cts = new(TimeSpan.FromSeconds(15));
         var res = await OpenRouteServiceFunctions.GetRoutingResponseAsync(newStart, dest, avoid, cts.Token);
-        if (res == null)
-        {
-            return;
-        }
+        if (res == null) { return; }
 
         var newRoute = OpenRouteServiceFunctions.GetRoute(res);
-        if (newRoute == null)
-        {
-            return;
-        }
+        if (newRoute == null) { return; }
 
         var steps = OpenRouteServiceFunctions.GetRoutingSteps(res);
         (totalDist, segLen) = RouteNavigation.BuildTotalDist(newRoute);
@@ -385,6 +418,16 @@ public class NavigationService
         navState?.RouteState = RouteState.NORMAL;
     }
 
-    public NavState? GetNavigationState()
-    { return navState; }
+    private void OnGoingWrongWay(object? sender, EventArgs e)
+    {
+        navState?.RouteState = RouteState.WRONG_WAY;
+    }
+
+    private void OnTurned(object? sender, EventArgs e)
+    {
+        navState?.RouteState = RouteState.NORMAL;
+    }
+
+
+    public NavState? GetNavigationState() => navState;
 }

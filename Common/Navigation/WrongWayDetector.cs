@@ -1,32 +1,60 @@
-﻿using System.Diagnostics;
-
-namespace NBNavApp.Common.Navigation;
+﻿namespace NBNavApp.Common.Navigation;
 
 internal class WrongWayDetector
 {
     DateTime? suspectSince;
 
-    public double MinSpeedMps { get; set; } = 2.0;
-    public double MaxPerpMeters { get; set; } = 35.0;
-    public double AngleThresholdDeg { get; set; } = 100.0;
-    public TimeSpan ConfirmTime = TimeSpan.FromSeconds(8);
+    bool suspectWrongWay;
 
-    public bool Update(double speedMps, double dPerp, double angleDiffDeg, DateTime now)
+    public double MinSpeedMps { get; set; } = 2.0;
+    public double MaxPerpMeters { get; set; } = 100;
+    public double AngleThresholdDeg { get; set; } = 100.0;
+    public TimeSpan DelayTime = TimeSpan.FromSeconds(30);
+    public TimeSpan Cooldown { get; set; } = TimeSpan.FromSeconds(30);
+
+    public static event EventHandler? GoingWrongWay;
+    public static event EventHandler? Turned;
+
+    public bool Update(double speedMps, double angleDiffDeg, DateTime now)
     {
-        if (speedMps < MinSpeedMps || dPerp > MaxPerpMeters)
+#if !DEBUG
+        if (speedMps < MinSpeedMps)
         {
             suspectSince = null;
             return false;
         }
+#endif
 
         if (angleDiffDeg > AngleThresholdDeg)
         {
             suspectSince ??= now;
-            bool isWrongWay = (now - suspectSince.Value) >= ConfirmTime;
-            return isWrongWay;
+            if (!suspectWrongWay)
+            { GoingWrongWay?.Invoke(this, EventArgs.Empty); }
+            suspectWrongWay = true;
+        }
+        else
+        { suspectSince = null; }
+
+        if (suspectWrongWay && angleDiffDeg <= AngleThresholdDeg)
+        {
+            Turned?.Invoke(this, EventArgs.Empty);
+            suspectWrongWay = false;
         }
 
-        suspectSince = null;
+        return suspectWrongWay;
+    }
+
+    public bool UpdateReroute(DateTime now)
+    {
+        if (suspectSince == null)
+        { return false; }
+
+        if (now - suspectSince.Value > DelayTime)
+        {
+            suspectSince = null;
+            return true;
+        }
+
         return false;
     }
 }

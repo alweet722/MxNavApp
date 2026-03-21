@@ -22,6 +22,7 @@ public enum Instruction : byte
 public enum RouteState
 {
     NORMAL,
+    WRONG_WAY,
     OFF_ROUTE,
     REROUTE
 };

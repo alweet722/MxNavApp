@@ -84,13 +84,10 @@ namespace NBNavApp.Common.Navigation
             return coordinates.Select(c => (lon: c[0], lat: c[1])).ToList();
         }
 
-        public static double GetDistance(OrsRoutingResponse routingResponse)
-        { return routingResponse.features[0].properties.summary.distance; }
+        public static double GetDistance(OrsRoutingResponse routingResponse) => routingResponse.features[0].properties.summary.distance;
 
-        public static double GetTimeToDest(OrsRoutingResponse routingResponse)
-        { return routingResponse.features[0].properties.summary.duration; }
+        public static double GetTimeToDest(OrsRoutingResponse routingResponse) => routingResponse.features[0].properties.summary.duration;
 
-        public static List<OrsRoutingStep> GetRoutingSteps(OrsRoutingResponse routingResponse)
-        { return routingResponse.features[0].properties.segments[0].steps; }
+        public static List<OrsRoutingStep> GetRoutingSteps(OrsRoutingResponse routingResponse) => routingResponse.features[0].properties.segments[0].steps;
     }
 }
