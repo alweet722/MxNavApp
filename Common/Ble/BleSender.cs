@@ -99,17 +99,23 @@ public class BleSender
         CancellationTokenSource cts = new(TimeSpan.FromSeconds(3));
 
         if (ConnectedDevice == null)
-        { return; }
+        { throw new BleWriteFailedException("Device not connected"); }
 
         if (navChar == null)
-        { return; }
+        { throw new BleWriteFailedException("Navigation characteristic not found"); }
 
         try
         { await ConnectedDevice.WriteCharacteristicAsync(navChar, message.Data, false, cts.Token); }
         catch (TaskCanceledException)
-        { await MauiAlertService.ShowAlertAsync("BLE", "Write operation timed out."); }
-        catch (InvalidOperationException)
-        { await MauiAlertService.ShowAlertAsync("BLE", "Connection lost."); }
+        {
+            await MauiAlertService.ShowAlertAsync("BLE", "Write operation timed out.");
+            throw new BleWriteFailedException("Write operation timed out");
+        }
+        catch (InvalidOperationException ex)
+        {
+            await MauiAlertService.ShowAlertAsync("BLE", "Connection lost.");
+            throw new BleWriteFailedException("BLE connection lost", ex);
+        }
     }
 
     public async Task Disconnect()

@@ -180,13 +180,21 @@ public partial class StartPageViewModel : INotifyPropertyChanged
             if (MxNavColor != null)
             {
                 ColorMessage colorMessage = new(MxNavColor.Color);
-                await bleSender.WriteCharacteristicAsync(colorMessage);
+                try
+                { await bleSender.WriteCharacteristicAsync(colorMessage); }
+                catch (BleWriteFailedException)
+                { return; }
             }
 
             if (!string.IsNullOrEmpty(MxNavName) && MxNavName != fav)
             {
                 foreach (var msg in NameMessage.CreateNameMessages(MxNavName))
-                { await bleSender.WriteCharacteristicAsync(msg); }
+                {
+                    try
+                    { await bleSender.WriteCharacteristicAsync(msg); }
+                    catch (BleWriteFailedException)
+                    { return; }
+                }
                 fav = MyDevice?.Name = MxNavName;
 
                 await bleSender.Disconnect();

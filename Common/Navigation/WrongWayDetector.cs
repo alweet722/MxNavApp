@@ -15,13 +15,15 @@ internal class WrongWayDetector
     public static event EventHandler? GoingWrongWay;
     public static event EventHandler? Turned;
 
-    public bool Update(double angleDiffDeg, DateTime now)
+    public bool Update(double speedMps, double angleDiffDeg, DateTime now)
     {
-        //if (speedMps < MinSpeedMps || dPerp > MaxPerpMeters)
-        //{
-        //    suspectSince = null;
-        //    return false;
-        //}
+#if !DEBUG
+        if (speedMps < MinSpeedMps)
+        {
+            suspectSince = null;
+            return false;
+        }
+#endif
 
         if (angleDiffDeg > AngleThresholdDeg)
         {
