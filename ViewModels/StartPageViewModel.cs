@@ -320,10 +320,10 @@ public partial class StartPageViewModel : INotifyPropertyChanged
 
     private static async Task<PermissionStatus> CheckAndRequestLocationPermission()
     {
-        var status = await Permissions.CheckStatusAsync<Permissions.LocationAlways>();
+        var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
         if (status == PermissionStatus.Granted)
         { return status; }
-        status = await Permissions.RequestAsync<Permissions.LocationAlways>();
+        status = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
         return status;
     }
 

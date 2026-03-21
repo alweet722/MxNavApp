@@ -17,7 +17,7 @@ public class LocationUpdateEventArgs : EventArgs
 public class NavigationService
 {
     readonly BleSender bleSender;
-    readonly OffRouteDetector offRoute = new();
+    readonly OffRouteDetector offRouteDetector = new();
     readonly WrongWayDetector wrongWayDetector = new();
 
     NavigationManager? navigationManager;
@@ -58,6 +58,8 @@ public class NavigationService
         this.bleSender = bleSender;
         OffRouteDetector.GoneOffRoute += OnGoneOffRoute;
         OffRouteDetector.ReturnedOnRoute += OnReturnedOnRoute;
+        WrongWayDetector.GoingWrongWay += OnGoingWrongWay;
+        WrongWayDetector.Turned += OnTurned;
     }
 
     public void Initialize(NavigationManager navigationManager)
@@ -210,6 +212,9 @@ public class NavigationService
             }
 
             bool wrongWay = false;
+            bool wrongWayReroute = false;
+            bool reroute = false;
+            DateTime now = DateTime.UtcNow;
 
             var currentCartesianLoc = Mapsui.Projections.SphericalMercator.FromLonLat(location.Longitude, location.Latitude);
 
@@ -232,10 +237,12 @@ public class NavigationService
             if (heading != null)
             {
                 double diff = GeoFunctions.AngleDiffDeg(bearing, heading.Value);
-                wrongWay = wrongWayDetector.Update(location.Speed, dPerp, diff, DateTime.UtcNow);
+                wrongWay = wrongWayDetector.Update(diff, now);
+                wrongWayReroute = wrongWayDetector.UpdateReroute(now);
             }
 
-            bool reroute = offRoute.Update(dPerp, location.Accuracy, DateTime.UtcNow, out string reason);
+            if (!wrongWay)
+            { reroute = offRouteDetector.Update(dPerp, location.Accuracy, now); }
 
             StateMessage stateMsg = new(navState.RouteState);
             await bleSender.WriteCharacteristicAsync(stateMsg);
@@ -243,18 +250,14 @@ public class NavigationService
             switch (navState.RouteState)
             {
                 case RouteState.NORMAL:
-                    if (wrongWay)
-                    {
-                        NavMessage uturnMsg = new(Instruction.U_TURN, uint.MaxValue, (byte)exit);
-                        await bleSender.WriteCharacteristicAsync(uturnMsg);
-                        return;
-                    }
+                    break;
+                case RouteState.WRONG_WAY:
+                    if (wrongWayReroute)
+                    { navState.RouteState = RouteState.REROUTE; }
                     break;
                 case RouteState.OFF_ROUTE:
                     if (reroute)
-                    {
-                        navState.RouteState = RouteState.REROUTE;
-                    }
+                    { navState.RouteState = RouteState.REROUTE; }
                     return;
                 case RouteState.REROUTE:
                     navState.Start = (location.Latitude, location.Longitude);
@@ -318,7 +321,6 @@ public class NavigationService
             }
 
             var avgSpeed = MovingAverage.Compute(speed);
-            System.Diagnostics.Debug.WriteLine(speed);
 
             locUpdateCounter++;
             if (locUpdateCounter >= 20)
@@ -384,6 +386,17 @@ public class NavigationService
     {
         navState?.RouteState = RouteState.NORMAL;
     }
+
+    private void OnGoingWrongWay(object? sender, EventArgs e)
+    {
+        navState?.RouteState = RouteState.WRONG_WAY;
+    }
+
+    private void OnTurned(object? sender, EventArgs e)
+    {
+        navState?.RouteState = RouteState.NORMAL;
+    }
+
 
     public NavState? GetNavigationState()
     { return navState; }

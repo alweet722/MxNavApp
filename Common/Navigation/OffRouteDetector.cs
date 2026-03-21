@@ -7,18 +7,16 @@ public class OffRouteDetector
 
     bool isOffRoute;
 
-    public double MinDistanceMeters { get; set; } = 25;
+    public double MinDistanceMeters { get; set; } = 150;
     public double AccuracyFactor { get; set; } = 2.5;
     public TimeSpan ConfirmTime { get; set; } = TimeSpan.FromSeconds(5);
-    public TimeSpan Cooldown { get; set; } = TimeSpan.FromSeconds(30);
+    public TimeSpan Cooldown { get; set; } = TimeSpan.FromSeconds(15);
 
     public static event EventHandler? GoneOffRoute;
     public static event EventHandler? ReturnedOnRoute;
 
-    public bool Update(double dPerpMeters, double gpsAccuracyMeters, DateTime now, out string reason)
+    public bool Update(double dPerpMeters, double gpsAccuracyMeters, DateTime now)
     {
-        reason = string.Empty;
-
         if (now - lastReroute < Cooldown)
         {
             suspectSince = null;
@@ -30,14 +28,14 @@ public class OffRouteDetector
         if (dPerpMeters > threshold)
         {
             suspectSince ??= now;
-            GoneOffRoute?.Invoke(this, EventArgs.Empty);
+            if (!isOffRoute)
+            { GoneOffRoute?.Invoke(this, EventArgs.Empty); }
             isOffRoute = true;
 
             if (now - suspectSince > ConfirmTime)
             {
                 lastReroute = now;
                 suspectSince = null;
-                reason = $"Off-route: dPerp={dPerpMeters:0}m > {threshold:0} for {ConfirmTime.TotalSeconds:0}s";
                 return true;
             }
         }
