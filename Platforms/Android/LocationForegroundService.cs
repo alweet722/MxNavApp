@@ -4,7 +4,6 @@ using Android.Content;
 using Android.Content.PM;
 using Android.Gms.Location;
 using Android.OS;
-using Android.Util;
 using AndroidX.Core.App;
 using NBNavApp.Platforms.Android;
 
@@ -20,7 +19,6 @@ public class LocationForegroundService : Service
     IFusedLocationProviderClient? fused;
 
     PendingIntent? pendingIntent;
-    PowerManager.WakeLock? wakeLock;
 
     private Notification BuildNotification(string text)
     {
@@ -45,10 +43,6 @@ public class LocationForegroundService : Service
     {
         base.OnCreate();
         CreateNotificationChannel();
-
-        //var powerManager = (PowerManager)GetSystemService(PowerService)!;
-        //wakeLock = powerManager.NewWakeLock(WakeLockFlags.Partial, "NBNavApp:LocationLock");
-        //wakeLock?.SetReferenceCounted(false);
 
         fused = LocationServices.GetFusedLocationProviderClient(this);
     }
@@ -75,7 +69,6 @@ public class LocationForegroundService : Service
             notification,
             (int)ForegroundService.TypeLocation
         );
-        //AcquireWakeLock();
         StartLocationUpdates();
         return StartCommandResult.NotSticky;
     }
@@ -83,26 +76,9 @@ public class LocationForegroundService : Service
     public override void OnDestroy()
     {
         StopLocationUpdates();
-        //ReleaseWakeLock();
         StopForeground(StopForegroundFlags.Remove);
         StopSelf();
         base.OnDestroy();
-    }
-
-    private void AcquireWakeLock()
-    {
-        if (wakeLock?.IsHeld == true)
-        { return; }
-        wakeLock?.Acquire();
-        Log.Debug("GPS-SVC", "WakeLock acquired");
-    }
-
-    private void ReleaseWakeLock()
-    {
-        if (wakeLock?.IsHeld != true)
-        { return; }
-        wakeLock?.Release();
-        Log.Debug("GPS-SVC", "WakeLock released");
     }
 
     private PendingIntent GetLocationPendingIntent()
@@ -132,8 +108,8 @@ public class LocationForegroundService : Service
 
         pendingIntent ??= GetLocationPendingIntent();
 
-        var req = new LocationRequest.Builder(Priority.PriorityHighAccuracy, 2000)
-            .SetMinUpdateIntervalMillis(2000)
+        var req = new LocationRequest.Builder(Priority.PriorityHighAccuracy, 1000)
+            .SetMinUpdateIntervalMillis(1000)
             .SetWaitForAccurateLocation(false)
             .Build();
 

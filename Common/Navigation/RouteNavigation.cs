@@ -133,10 +133,10 @@ public class RouteNavigation
         if (finalGoalIndex < 0)
         { finalGoalIndex = steps.Count - 1; }
 
-        while (state.CurrentStepIndex < steps.Count - 1 && s > steps[state.CurrentStepIndex].coords[1] + 20)
+        while (state.CurrentStepIndex < steps.Count - 1 && s > steps[state.CurrentStepIndex].coords[1] + 5)
         { state.CurrentStepIndex++; }
 
-        while (state.CurrentStepIndex > 0 && s < steps[state.CurrentStepIndex].coords[0] - 20)
+        while (state.CurrentStepIndex > 0 && s < steps[state.CurrentStepIndex].coords[0] - 10)
         { state.CurrentStepIndex--; }
 
         int stepIndex = state.CurrentStepIndex;
@@ -179,7 +179,7 @@ public class RouteNavigation
         { return (loc.Speed ?? 0, new(loc, now)); }
 
         double dt = (now - state.PrevTime.Value).TotalSeconds;
-        if (dt < 0.5)
+        if (dt < 1.0)
         { return (loc.Speed ?? 0, state); }
 
         double d = GeoFunctions.HaversineMeters((state.PrevLoc.Longitude, state.PrevLoc.Latitude), (loc.Longitude, loc.Latitude));
