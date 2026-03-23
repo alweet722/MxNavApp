@@ -1,4 +1,6 @@
-﻿namespace NBNavApp.Common.Navigation;
+﻿using NBNavApp.Common.Util;
+
+namespace NBNavApp.Common.Navigation;
 
 public enum Instruction : byte
 {
@@ -124,7 +126,7 @@ public class RouteNavigation
         return (s, bestD);
     }
 
-    public static (int currentStepIndex, int manouverIndex, double dist, int exit) ComputeStepAndDistance(double s, List<PreparedStep> steps, NavState state)
+    public static (int currentStepIndex, int manouverIndex, double dist, int exit) ComputeStepAndDistance(double s, List<PreparedStep> steps, NavState state, double speedMps)
     {
         if (steps.Count == 0)
         { return (0, 0, 0, 0); }
@@ -133,10 +135,18 @@ public class RouteNavigation
         if (finalGoalIndex < 0)
         { finalGoalIndex = steps.Count - 1; }
 
-        while (state.CurrentStepIndex < steps.Count - 1 && s > steps[state.CurrentStepIndex].coords[1] + 5)
+#if DEBUG
+        speedMps = 25;
+#endif
+        double speedKmh = speedMps * 3.6;
+        double forwardThreshold = 5 + (speedKmh / Constants.MAX_SPEED_KMH) * (Constants.WRONGWAY_MIN_DISTANCE_HIGHWAY - Constants.NEXT_SEGMENT_MIN_DISTANCE_CITY);
+        forwardThreshold = Math.Clamp(forwardThreshold, Constants.NEXT_SEGMENT_MIN_DISTANCE_CITY, Constants.WRONGWAY_MIN_DISTANCE_HIGHWAY);
+        double backwardThreshold = forwardThreshold + 5;
+
+        while (state.CurrentStepIndex < steps.Count - 1 && s > steps[state.CurrentStepIndex].coords[1] + forwardThreshold)
         { state.CurrentStepIndex++; }
 
-        while (state.CurrentStepIndex > 0 && s < steps[state.CurrentStepIndex].coords[0] - 10)
+        while (state.CurrentStepIndex > 0 && s < steps[state.CurrentStepIndex].coords[0] - backwardThreshold)
         { state.CurrentStepIndex--; }
 
         int stepIndex = state.CurrentStepIndex;

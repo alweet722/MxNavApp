@@ -3,6 +3,11 @@ using NBNavApp.Common.Messages;
 using NBNavApp.Common.Navigation;
 using NBNavApp.Common.Util;
 
+#if ANDROID31_0_OR_GREATER
+using Android.Content;
+using NBNavApp.Platforms.Android;
+#endif
+
 namespace NBNavApp.Common.Services;
 
 public class LocationUpdateEventArgs : EventArgs
@@ -36,7 +41,6 @@ public class NavigationService
 
     int locUpdateCounter = 0;
     bool isStopping;
-    const double lookahead = 25;
 
     bool isNavigating;
     public bool IsNavigating
@@ -126,6 +130,12 @@ public class NavigationService
         await navigationManager.StartNavigationAsync();
 
 #if ANDROID31_0_OR_GREATER
+        var context = GetAndroidContext();
+        if (context == null)
+        { return; }
+
+        var intent = new Intent(context, typeof(LocationForegroundService));
+        context.StartService(intent);
         LocationBus.LocationUpdated += OnLocationUpdated;
 #endif
 
@@ -183,6 +193,14 @@ public class NavigationService
 
 #if ANDROID31_0_OR_GREATER
         LocationBus.LocationUpdated -= OnLocationUpdated;
+        var context = GetAndroidContext();
+        if (context == null)
+        { return; }
+
+        var stopIntent = new Intent(context, typeof(LocationForegroundService));
+        stopIntent.SetAction("STOP_LOCATION");
+        context.StartService(stopIntent);
+
 #endif
 
         if (!bleSender.ConnectionState.IsConnected)
@@ -234,8 +252,13 @@ public class NavigationService
                 preparedSteps,
                 navState);
 
-            var (idx, nextIdx, distToNext, exit) = RouteNavigation.ComputeStepAndDistance(s, preparedSteps, navState);
+            var (idx, nextIdx, distToNext, exit) = RouteNavigation.ComputeStepAndDistance(s, preparedSteps, navState, location.Speed);
             var nextStep = preparedSteps[nextIdx].type;
+
+            // Calculate adaptive lookahead based on speed (linear scaling)
+            double speedKmh = location.Speed * 3.6;
+            double lookahead = Constants.LOOKAHEAD_MIN_CITY + (speedKmh / Constants.MAX_SPEED_KMH) * (Constants.LOOKAHEAD_MAX_HIGHWAY - Constants.LOOKAHEAD_MIN_CITY);
+            lookahead = Math.Clamp(lookahead, Constants.LOOKAHEAD_MIN_CITY, Constants.LOOKAHEAD_MAX_HIGHWAY);
 
             var pNow = RouteNavigation.PointAtS(route, totalDist, segLen, s);
             var pFwd = RouteNavigation.PointAtS(route, totalDist, segLen, s + lookahead);
@@ -250,7 +273,7 @@ public class NavigationService
             }
 
             if (!wrongWay)
-            { reroute = offRouteDetector.Update(dPerp, location.Accuracy, now); }
+            { reroute = offRouteDetector.Update(dPerp, location.Accuracy, location.Speed, now); }
 
             StateMessage stateMsg = new(navState.RouteState);
             try
@@ -354,7 +377,13 @@ public class NavigationService
             var avgSpeed = MovingAverage.Compute(speed);
 
             locUpdateCounter++;
-            if (locUpdateCounter >= 20)
+
+            // Adaptive ETA update frequency based on distance to destination
+            // Far: update every 20 updates (~20 seconds)
+            // Near: update every 10 updates (~10 seconds)
+            int etaUpdateThreshold = remaining > 1000 ? 20 : 10;
+
+            if (locUpdateCounter >= etaUpdateThreshold)
             {
                 var eta = remaining / avgSpeed;
                 timeToDest = TimeSpan.FromSeconds(eta);
@@ -408,6 +437,12 @@ public class NavigationService
         RouteUpdated?.Invoke(this, route);
     }
 
+    public NavState? GetNavigationState() => navState;
+
+#if ANDROID31_0_OR_GREATER
+    private static Android.Content.Context? GetAndroidContext() => Application.Current?.Windows[0]?.Handler?.MauiContext?.Context;
+#endif
+
     private void OnGoneOffRoute(object? sender, EventArgs e)
     {
         navState?.RouteState = RouteState.OFF_ROUTE;
@@ -427,7 +462,4 @@ public class NavigationService
     {
         navState?.RouteState = RouteState.NORMAL;
     }
-
-
-    public NavState? GetNavigationState() => navState;
 }
