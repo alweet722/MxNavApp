@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using NBNavApp.Common.Util;
+using System.Text;
 using System.Text.Json;
 
 namespace NBNavApp.Common.Navigation

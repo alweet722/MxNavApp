@@ -1,6 +1,7 @@
 ﻿using NBNavApp.Common.Ble;
 using NBNavApp.Common.Interfaces;
 using NBNavApp.Common.Messages.ParameterMessages;
+using NBNavApp.Common.Util;
 using Shiny.BluetoothLE;
 using System.Collections.ObjectModel;
 using System.ComponentModel;

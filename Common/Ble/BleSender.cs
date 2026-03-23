@@ -1,4 +1,5 @@
 ﻿using NBNavApp.Common.Messages;
+using NBNavApp.Common.Util;
 using Shiny.BluetoothLE;
 using System.Collections.ObjectModel;
 using System.ComponentModel;

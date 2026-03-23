@@ -1,4 +1,5 @@
-﻿namespace NBNavApp.Common.Navigation;
+﻿using NBNavApp.Common.Util;
+namespace NBNavApp.Common.Navigation;
 
 public class OffRouteDetector
 {
@@ -7,7 +8,6 @@ public class OffRouteDetector
 
     bool isOffRoute;
 
-    public double MinDistanceMeters { get; set; } = 150;
     public double AccuracyFactor { get; set; } = 2.5;
     public TimeSpan ConfirmTime { get; set; } = TimeSpan.FromSeconds(5);
     public TimeSpan Cooldown { get; set; } = TimeSpan.FromSeconds(15);
@@ -15,7 +15,7 @@ public class OffRouteDetector
     public static event EventHandler? GoneOffRoute;
     public static event EventHandler? ReturnedOnRoute;
 
-    public bool Update(double dPerpMeters, double gpsAccuracyMeters, DateTime now)
+    public bool Update(double dPerpMeters, double gpsAccuracyMeters, double speedMps, DateTime now)
     {
         if (now - lastReroute < Cooldown)
         {
@@ -23,7 +23,12 @@ public class OffRouteDetector
             return false;
         }
 
-        var threshold = Math.Max(MinDistanceMeters, AccuracyFactor * Math.Max(5, gpsAccuracyMeters));
+        // Calculate adaptive threshold based on speed (linear scaling)
+        double speedKmh = speedMps * 3.6;
+        double minDistance = Constants.OFFROUTE_MIN_DISTANCE_CITY + (speedKmh / Constants.MAX_SPEED_KMH) * (Constants.OFFROUTE_MIN_DISTANCE_HIGHWAY - Constants.OFFROUTE_MIN_DISTANCE_CITY);
+        minDistance = Math.Clamp(minDistance, Constants.OFFROUTE_MIN_DISTANCE_CITY, Constants.OFFROUTE_MIN_DISTANCE_HIGHWAY);
+
+        var threshold = Math.Max(minDistance, AccuracyFactor * Math.Max(5, gpsAccuracyMeters));
 
         if (dPerpMeters > threshold)
         {
