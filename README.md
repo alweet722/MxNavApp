@@ -135,7 +135,7 @@ Contributions are welcome! Please ensure:
 
 ## License
 
-[Add your license information here]
+This project is provided as-is for personal and educational use.
 
 ## Related Projects
 
