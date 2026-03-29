@@ -30,7 +30,7 @@ public class BleSender
 
         if (BleManager.IsScanning)
         {
-            await MauiAlertService.ShowAlertAsync("BLE", "Another scan already in progress.");
+            await MauiPopupService.ShowAlertAsync("BLE", "Another scan already in progress.");
             return peripherals;
         }
 
@@ -72,7 +72,7 @@ public class BleSender
         catch (TaskCanceledException)
         {
             ConnectedDevice = null;
-            await MauiAlertService.ShowAlertAsync("BLE", "Connection timed out.");
+            await MauiPopupService.ShowAlertAsync("BLE", "Connection timed out.");
             return false;
         }
 
@@ -82,14 +82,14 @@ public class BleSender
         {
             ConnectedDevice.CancelConnection();
             ConnectedDevice = null;
-            await MauiAlertService.ShowAlertAsync("BLE", "Timeout while getting navigation characteristic.");
+            await MauiPopupService.ShowAlertAsync("BLE", "Timeout while getting navigation characteristic.");
             return false;
         }
         catch (Exception ex)
         {
             ConnectedDevice.CancelConnection();
             ConnectedDevice = null;
-            await MauiAlertService.ShowAlertAsync("BLE", $"{ex.Message}");
+            await MauiPopupService.ShowAlertAsync("BLE", $"{ex.Message}");
         }
 
         return ConnectionState.IsConnected = true;
@@ -109,12 +109,12 @@ public class BleSender
         { await ConnectedDevice.WriteCharacteristicAsync(navChar, message.Data, false, cts.Token); }
         catch (TaskCanceledException)
         {
-            await MauiAlertService.ShowAlertAsync("BLE", "Write operation timed out.");
+            await MauiPopupService.ShowAlertAsync("BLE", "Write operation timed out.");
             throw new BleWriteFailedException("Write operation timed out");
         }
         catch (InvalidOperationException ex)
         {
-            await MauiAlertService.ShowAlertAsync("BLE", "Connection lost.");
+            await MauiPopupService.ShowAlertAsync("BLE", "Connection lost.");
             throw new BleWriteFailedException("BLE connection lost", ex);
         }
     }

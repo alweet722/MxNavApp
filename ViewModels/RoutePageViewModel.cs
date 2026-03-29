@@ -5,6 +5,7 @@ using Mapsui.Tiling;
 using NBNavApp.Common.Ble;
 using NBNavApp.Common.Navigation;
 using NBNavApp.Common.Services;
+using NBNavApp.Common.Util;
 using Shiny.BluetoothLE;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -226,7 +227,7 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
     {
         if (IsDriving)
         {
-            if (!await MauiAlertService.ShowAlertAsync("Navigation", "Do you want to stop the navigation?", "Yes", "No"))
+            if (!await MauiPopupService.ShowAlertAsync("Navigation", "Do you want to stop the navigation?", "Yes", "No"))
             { return; }
         }
 
@@ -262,7 +263,7 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
         }
         catch (TaskCanceledException)
         {
-            await MauiAlertService.ShowAlertAsync("Location", "Could not get current location.");
+            await MauiPopupService.ShowAlertAsync("Location", "Could not get current location.");
             return;
         }
 

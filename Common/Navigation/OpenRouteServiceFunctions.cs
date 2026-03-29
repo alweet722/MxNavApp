@@ -31,46 +31,51 @@ namespace NBNavApp.Common.Navigation
             string[] avoidFeatures,
             CancellationToken ct)
         {
+            if (start.Length < 2 || destination.Length < 2)
+            { return null; }
+
+            string apiKey = Preferences.Default.Get(Constants.API_KEY_KEY, string.Empty);
+            if (string.IsNullOrEmpty(apiKey))
             {
-                if (start.Length < 2 || destination.Length < 2)
-                { return null; }
+                await MauiPopupService.ShowAlertAsync("ORS API key", "ORS API key not set!");
+                return null;
+            }
 
-                string url = "https://api.openrouteservice.org/v2/directions/driving-car/geojson";
+            string url = "https://api.openrouteservice.org/v2/directions/driving-car/geojson";
 
-                var payload = new
+            var payload = new
+            {
+                coordinates = new[]
                 {
-                    coordinates = new[]
-                    {
                     start,
                     destination
                 },
-                    options = new
-                    {
-                        avoid_features = avoidFeatures,
-                    },
-                    roundabout_exits = true
-                };
-
-                using HttpRequestMessage req = new(HttpMethod.Post, url);
-                req.Headers.TryAddWithoutValidation("Authorization", Constants.API_KEY);
-                req.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-
-                using HttpResponseMessage res = await client.SendAsync(req, ct);
-                try
-                { res.EnsureSuccessStatusCode(); }
-                catch (HttpRequestException e)
+                options = new
                 {
-                    await MauiAlertService.ShowAlertAsync("Routing", $"Error while fetching route: {e.StatusCode}: {e.Message}");
-                    return null;
-                }
+                    avoid_features = avoidFeatures,
+                },
+                roundabout_exits = true
+            };
 
-                string json = await res.Content.ReadAsStringAsync(ct);
-                OrsRoutingResponse? data = JsonSerializer.Deserialize<OrsRoutingResponse>(json);
-                if (data == null)
-                { return null; }
+            using HttpRequestMessage req = new(HttpMethod.Post, url);
+            req.Headers.TryAddWithoutValidation("Authorization", apiKey);
+            req.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
-                return data;
+            using HttpResponseMessage res = await client.SendAsync(req, ct);
+            try
+            { res.EnsureSuccessStatusCode(); }
+            catch (HttpRequestException e)
+            {
+                await MauiPopupService.ShowAlertAsync("Routing", $"Error while fetching route: {e.StatusCode}: {e.Message}");
+                return null;
             }
+
+            string json = await res.Content.ReadAsStringAsync(ct);
+            OrsRoutingResponse? data = JsonSerializer.Deserialize<OrsRoutingResponse>(json);
+            if (data == null)
+            { return null; }
+
+            return data;
         }
 
         public static List<(double lon, double lat)>? GetRoute(OrsRoutingResponse routingResponse)
@@ -78,7 +83,7 @@ namespace NBNavApp.Common.Navigation
             List<double[]>? coordinates = routingResponse?.features?[0].geometry?.coordinates;
             if (coordinates == null || coordinates.Count == 0)
             {
-                MauiAlertService.ShowAlertAsync("Routing", "Route contains no waypoints.");
+                MauiPopupService.ShowAlertAsync("Routing", "Route contains no waypoints.");
                 return null;
             }
 

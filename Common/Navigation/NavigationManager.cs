@@ -1,4 +1,5 @@
 ﻿using NBNavApp.Common.Ble;
+using NBNavApp.Common.Util;
 
 namespace NBNavApp.Common.Navigation;
 
@@ -16,7 +17,7 @@ public class NavigationManager
     public async Task StartNavigationAsync()
     {
         if (!bleState.IsConnected)
-        { await MauiAlertService.ShowAlertAsync("BLE", "Connection lost."); }
+        { await MauiPopupService.ShowAlertAsync("BLE", "Connection lost."); }
 
         if (IsNavigating)
         { return; }

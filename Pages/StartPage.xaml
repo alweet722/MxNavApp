@@ -172,7 +172,7 @@
         <Button
             Grid.Row="6"
             Grid.Column="1"
-            Text="Next"
+            Text="Route"
             Command="{Binding GoToRouteCommand}"
             IsEnabled="{Binding CanGoNext}"
             WidthRequest="120" 

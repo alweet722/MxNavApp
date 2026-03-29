@@ -106,24 +106,24 @@ public class NavigationService
     {
         if (totalDist == null || navigationManager == null)
         {
-            await MauiAlertService.ShowAlertAsync("Navigation", "Navigation not properly initialized.");
+            await MauiPopupService.ShowAlertAsync("Navigation", "Navigation not properly initialized.");
             return;
         }
 
         if (!bleSender.ConnectionState.IsConnected)
         {
-            await MauiAlertService.ShowAlertAsync("BLE", "Connection lost.");
+            await MauiPopupService.ShowAlertAsync("BLE", "Connection lost.");
             return;
         }
 
         try
         { await Geolocation.GetLocationAsync(); }
         catch (FeatureNotEnabledException)
-        { await MauiAlertService.ShowAlertAsync("Navigation", "Geolocation is switched off."); return; }
+        { await MauiPopupService.ShowAlertAsync("Navigation", "Geolocation is switched off."); return; }
 
         if (navState == null)
         {
-            await MauiAlertService.ShowAlertAsync("Navigation", "Route not set.");
+            await MauiPopupService.ShowAlertAsync("Navigation", "Route not set.");
             return;
         }
 
@@ -232,7 +232,7 @@ public class NavigationService
         {
             if (!bleSender.ConnectionState.IsConnected)
             {
-                await MauiAlertService.ShowAlertAsync("BLE", "Connection lost.");
+                await MauiPopupService.ShowAlertAsync("BLE", "Connection lost.");
                 await StopNavigationAsync();
                 return;
             }
