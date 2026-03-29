@@ -1,4 +1,6 @@
-﻿using NBNavApp.Common.Util;
+﻿using NBNavApp.Common.Ble;
+using NBNavApp.Common.Messages.ParameterMessages;
+using NBNavApp.Common.Util;
 using System.ComponentModel;
 using System.Windows.Input;
 
@@ -14,6 +16,8 @@ public record ColorEntry(string Name, Color Color);
 
 public class SettingsPageViewModel : INotifyPropertyChanged
 {
+    readonly BleSender bleSender;
+    readonly BleConnectionState bleConnectionState;
 
     string? apiKey;
     public string? ApiKey
@@ -71,6 +75,8 @@ public class SettingsPageViewModel : INotifyPropertyChanged
         { new("Dashboard red", new Color(220, 0, 0))},
     };
 
+    string favDeviceName;
+
     public ICommand EditApiKeyCommand { get; }
     public ICommand BackCommand { get; }
     public ICommand SaveCommand { get; }
@@ -78,18 +84,52 @@ public class SettingsPageViewModel : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
     void OnPropertyChanged(string n) => PropertyChanged?.Invoke(this, new(n));
 
-    public SettingsPageViewModel()
+    public SettingsPageViewModel(BleSender bleSender, BleConnectionState bleConnectionState)
     {
+        this.bleSender = bleSender;
+        this.bleConnectionState = bleConnectionState;
+
         var colorName = Preferences.Default.Get(Constants.MX_NAV_COLOR_KEY, string.Empty);
         ApiKey = Preferences.Default.Get(Constants.API_KEY_KEY, string.Empty);
-        MxNavName = Preferences.Default.Get(Constants.MX_NAV_NAME_KEY, string.Empty);
+        favDeviceName = MxNavName = Preferences.Default.Get(Constants.MX_NAV_NAME_KEY, string.Empty);
         MxNavColor = !string.IsNullOrEmpty(colorName) ? Colors.FirstOrDefault(d => d.Name == colorName) : Colors[0];
 
         EditApiKeyCommand = new Command(async () =>
-        { });
+        {
+            string? setApiKey = await MauiPopupService.ShowPromptAsync("ORS API key", "Enter your ORS API key:", ApiKey);
+            if (setApiKey == null && string.IsNullOrEmpty(ApiKey))
+            { await MauiPopupService.ShowAlertAsync("ORS API key", "ORS API key was not set."); }
+        });
 
         BackCommand = new Command(async () =>
         {
+            if (bleConnectionState.IsConnected)
+            {
+                if (MxNavColor != null)
+                {
+                    ColorMessage colorMessage = new(MxNavColor.Color);
+                    try
+                    { await bleSender.WriteCharacteristicAsync(colorMessage); }
+                    catch (BleWriteFailedException)
+                    { return; }
+                }
+
+                if (!string.IsNullOrEmpty(MxNavName) && MxNavName != favDeviceName)
+                {
+                    foreach (var msg in NameMessage.CreateNameMessages(MxNavName))
+                    {
+                        try
+                        { await bleSender.WriteCharacteristicAsync(msg); }
+                        catch (BleWriteFailedException)
+                        { return; }
+                    }
+                    favDeviceName = MxNavName;
+
+                    await bleSender.Disconnect();
+                    await bleSender.ScanDevicesAsync(timeout: 5);
+                }
+            }
+
             await Shell.Current.GoToAsync("..");
         });
 
@@ -107,6 +147,7 @@ public class SettingsPageViewModel : INotifyPropertyChanged
 
     private void NotifyUI()
     {
+        OnPropertyChanged(nameof(ApiKey));
         OnPropertyChanged(nameof(MxNavName));
         OnPropertyChanged(nameof(MxNavColor));
         OnPropertyChanged(nameof(IsSaved));

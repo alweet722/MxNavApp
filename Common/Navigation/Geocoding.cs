@@ -17,19 +17,26 @@ internal class AddressGeocoder
         if (string.IsNullOrWhiteSpace(address))
         { return null; }
 
+        string apiKey = Preferences.Default.Get(Constants.API_KEY_KEY, string.Empty);
+        if (string.IsNullOrEmpty(apiKey))
+        {
+            await MauiPopupService.ShowAlertAsync("ORS API key", "ORS API key not set!");
+            return null;
+        }
+
         HttpResponseMessage res;
 
         string url = $"https://api.openrouteservice.org/geocode/search?text={Uri.EscapeDataString(address)}&size=1";
 
         using HttpRequestMessage req = new(HttpMethod.Get, url);
-        req.Headers.TryAddWithoutValidation("Authorization", Constants.API_KEY);
+        req.Headers.TryAddWithoutValidation("Authorization", apiKey);
         req.Headers.TryAddWithoutValidation("Accept", "application/json");
 
         try
         { res = await client.SendAsync(req, ct); }
         catch (Exception)
         {
-            await MauiAlertService.ShowAlertAsync("Geocoding", "Server not available.");
+            await MauiPopupService.ShowAlertAsync("Geocoding", "Server not available.");
             return null;
         }
 
@@ -37,7 +44,7 @@ internal class AddressGeocoder
         { res.EnsureSuccessStatusCode(); }
         catch (HttpRequestException e)
         {
-            await MauiAlertService.ShowAlertAsync("Geocoding", $"Error while resolving address: {e.StatusCode}: {e.Message}");
+            await MauiPopupService.ShowAlertAsync("Geocoding", $"Error while resolving address: {e.StatusCode}: {e.Message}");
             return null;
         }
 
@@ -45,20 +52,20 @@ internal class AddressGeocoder
         OrsGeocodingResponse? geodata = JsonSerializer.Deserialize<OrsGeocodingResponse>(json);
         if (geodata == null)
         {
-            await MauiAlertService.ShowAlertAsync("Geocoding", "No matches found.");
+            await MauiPopupService.ShowAlertAsync("Geocoding", "No matches found.");
             return null;
         }
 
         OrsGeocodingFeature? feature = geodata.features[0];
         if (feature == null)
         {
-            await MauiAlertService.ShowAlertAsync("Geocoding", "No matches found.");
+            await MauiPopupService.ShowAlertAsync("Geocoding", "No matches found.");
             return null;
         }
 
         if (feature.geometry.coordinates == null || feature.geometry.coordinates.Length < 2)
         {
-            await MauiAlertService.ShowAlertAsync("Geocoding", "No matches found.");
+            await MauiPopupService.ShowAlertAsync("Geocoding", "No matches found.");
             return null;
         }
 

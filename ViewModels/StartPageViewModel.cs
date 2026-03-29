@@ -111,7 +111,7 @@ public partial class StartPageViewModel : INotifyPropertyChanged
     public ICommand ClearSelectionCommand { get; }
     public ICommand OpenSettingsCommand { get; }
 
-    string fav;
+    string favDeviceName;
 
     public event PropertyChangedEventHandler? PropertyChanged;
     void OnPropertyChanged(string n) => PropertyChanged?.Invoke(this, new(n));
@@ -121,10 +121,10 @@ public partial class StartPageViewModel : INotifyPropertyChanged
         this.bleSender = bleSender;
         this.bleStateMonitor = bleStateMonitor;
 
-        fav = Preferences.Default.Get(Constants.MX_NAV_NAME_KEY, string.Empty);
-        if (Preferences.Default.ContainsKey(Constants.MX_NAV_NAME_KEY) && !string.IsNullOrEmpty(fav))
+        favDeviceName = Preferences.Default.Get(Constants.MX_NAV_NAME_KEY, string.Empty);
+        if (Preferences.Default.ContainsKey(Constants.MX_NAV_NAME_KEY) && !string.IsNullOrEmpty(favDeviceName))
         {
-            DeviceData? dev = new(0, "N/A", fav);
+            DeviceData? dev = new(0, "N/A", favDeviceName);
             MyDevice = dev;
         }
 
@@ -151,7 +151,13 @@ public partial class StartPageViewModel : INotifyPropertyChanged
         {
             if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
             {
-                await MauiAlertService.ShowAlertAsync("Network", "No internet connection! Internet connection required for routing.");
+                await MauiPopupService.ShowAlertAsync("Network", "No internet connection! Internet connection required for routing.");
+                return;
+            }
+            string apiKey = Preferences.Default.Get(Constants.API_KEY_KEY, string.Empty);
+            if (string.IsNullOrEmpty(apiKey))
+            {
+                await MauiPopupService.ShowAlertAsync("ORS API key", "ORS API key not set;\nRouting not possible.");
                 return;
             }
             await Shell.Current.GoToAsync("RoutePage");
@@ -166,42 +172,6 @@ public partial class StartPageViewModel : INotifyPropertyChanged
         OpenSettingsCommand = new Command(async () =>
         {
             await Shell.Current.GoToAsync("SettingsPage");
-            //    SettingsOpen = true;
-            //    NotifyUi();
-
-            //    var res = await settingsDialog.ShowSettingsDialogAsync(MxNavName, MxNavColor);
-            //    if (res == null)
-            //    { return; }
-
-            //    //MxNavName = res.MxNavName;
-            //    //MxNavColor = res.MxNavColor;
-
-            //    if (MxNavColor != null)
-            //    {
-            //        ColorMessage colorMessage = new(MxNavColor.Color);
-            //        try
-            //        { await bleSender.WriteCharacteristicAsync(colorMessage); }
-            //        catch (BleWriteFailedException)
-            //        { return; }
-            //    }
-
-            //    if (!string.IsNullOrEmpty(MxNavName) && MxNavName != fav)
-            //    {
-            //        foreach (var msg in NameMessage.CreateNameMessages(MxNavName))
-            //        {
-            //            try
-            //            { await bleSender.WriteCharacteristicAsync(msg); }
-            //            catch (BleWriteFailedException)
-            //            { return; }
-            //        }
-            //        fav = MyDevice?.Name = MxNavName;
-
-            //        await bleSender.Disconnect();
-            //        await ScanAsync(5);
-            //    }
-
-            //    SettingsOpen = false;
-            //    NotifyUi();
         });
 
         bleStateMonitor.PeripheralStateChanged += OnPeripheralStateChanged;
@@ -248,7 +218,7 @@ public partial class StartPageViewModel : INotifyPropertyChanged
             if (access != Shiny.AccessState.Available)
             {
                 IsScanning = false;
-                await MauiAlertService.ShowAlertAsync("BLE", $"No access: {access}.");
+                await MauiPopupService.ShowAlertAsync("BLE", $"No access: {access}.");
                 return;
             }
 
@@ -256,14 +226,14 @@ public partial class StartPageViewModel : INotifyPropertyChanged
 
             await bleSender.ScanDevicesAsync(FoundDevices, timeout);
 
-            if (!string.IsNullOrEmpty(fav))
+            if (!string.IsNullOrEmpty(favDeviceName))
             {
-                DeviceData? found = FoundDevices.FirstOrDefault(d => string.Equals(d.Name, fav, StringComparison.OrdinalIgnoreCase));
+                DeviceData? found = FoundDevices.FirstOrDefault(d => string.Equals(d.Name, favDeviceName, StringComparison.OrdinalIgnoreCase));
 
                 if (found != null)
                 { MyDevice = found; }
                 else
-                { MyDevice = new(0, "N/A", fav); }
+                { MyDevice = new(0, "N/A", favDeviceName); }
 
                 NotifyUi();
             }
@@ -296,16 +266,16 @@ public partial class StartPageViewModel : INotifyPropertyChanged
         if (!status || bleSender.ConnectedDevice == null)
         {
             IsConnecting = false;
-            MyDevice = new(0, "N/A", fav);
+            MyDevice = new(0, "N/A", favDeviceName);
             MyDeviceIsSelected = false;
             NotifyUi();
             return;
         }
 
         Preferences.Default.Set(Constants.MX_NAV_NAME_KEY, bleSender.ConnectedDevice?.Name);
-        fav = bleSender.ConnectedDevice?.Name ?? fav;
+        favDeviceName = bleSender.ConnectedDevice?.Name ?? favDeviceName;
 
-        MyDevice = new(0, bleSender.ConnectedDevice.Uuid, fav, bleSender.ConnectedDevice);
+        MyDevice = new(0, bleSender.ConnectedDevice.Uuid, favDeviceName, bleSender.ConnectedDevice);
 
         MyDeviceIsSelected = false;
         IsConnecting = false;
