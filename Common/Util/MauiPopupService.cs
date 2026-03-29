@@ -34,7 +34,7 @@ internal class MauiPopupService : IPopupInterface
         });
     }
 
-    public static Task<string?> ShowPromptAsync(string title, string message, string initialValue, string accept = "Done", string cancel = "Close", string? placeholder = null)
+    public static Task<string?> ShowPromptAsync(string title, string message, string? initialValue, string accept = "Done", string cancel = "Close", string? placeholder = null)
     {
         return MainThread.InvokeOnMainThreadAsync(async Task<string?> () =>
         {

@@ -39,7 +39,8 @@
             BorderWidth="2"
             BackgroundColor="Transparent"
             CornerRadius="10"
-            WidthRequest="50"
+            WidthRequest="35"
+            HeightRequest="35"
             Source="{AppThemeBinding Light=location_light.png, Dark=location_dark.png}"
             HorizontalOptions="End"
             Command="{Binding UseMyLocationCommand}"/>

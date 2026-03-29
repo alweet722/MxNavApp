@@ -28,6 +28,7 @@ public class SettingsPageViewModel : INotifyPropertyChanged
             if (apiKey == value) return;
             apiKey = value;
             OnPropertyChanged(nameof(ApiKey));
+            ((Command)SaveCommand).ChangeCanExecute();
         }
     }
 
@@ -40,6 +41,7 @@ public class SettingsPageViewModel : INotifyPropertyChanged
             if (mxNavName == value) return;
             mxNavName = value;
             OnPropertyChanged(nameof(MxNavName));
+            ((Command)SaveCommand).ChangeCanExecute();
         }
     }
 
@@ -52,22 +54,21 @@ public class SettingsPageViewModel : INotifyPropertyChanged
             if (mxNavColor == value) return;
             mxNavColor = value;
             OnPropertyChanged(nameof(MxNavColor));
+            ((Command)SaveCommand).ChangeCanExecute();
         }
     }
 
-    bool isSaved;
-    public bool IsSaved
+    bool isConnected;
+    public bool IsConnected
     {
-        get => isSaved;
+        get => isConnected;
         set
         {
-            if (isSaved == value) return;
-            isSaved = value;
-            OnPropertyChanged(nameof(IsSaved));
+            if (isConnected == value) return;
+            isConnected = value;
+            OnPropertyChanged(nameof(IsConnected));
         }
     }
-
-    public string SaveStatusText => IsSaved ? "Saved!" : string.Empty;
 
     public List<ColorEntry> Colors { get; } = new()
     {
@@ -75,11 +76,14 @@ public class SettingsPageViewModel : INotifyPropertyChanged
         { new("Dashboard red", new Color(220, 0, 0))},
     };
 
-    string favDeviceName;
-
+    public ICommand AppearingCommand { get; }
     public ICommand EditApiKeyCommand { get; }
     public ICommand BackCommand { get; }
     public ICommand SaveCommand { get; }
+
+    string? originalApiKey;
+    string? originalMxNavName;
+    ColorEntry? originalMxNavColor;
 
     public event PropertyChangedEventHandler? PropertyChanged;
     void OnPropertyChanged(string n) => PropertyChanged?.Invoke(this, new(n));
@@ -89,16 +93,17 @@ public class SettingsPageViewModel : INotifyPropertyChanged
         this.bleSender = bleSender;
         this.bleConnectionState = bleConnectionState;
 
-        var colorName = Preferences.Default.Get(Constants.MX_NAV_COLOR_KEY, string.Empty);
-        ApiKey = Preferences.Default.Get(Constants.API_KEY_KEY, string.Empty);
-        favDeviceName = MxNavName = Preferences.Default.Get(Constants.MX_NAV_NAME_KEY, string.Empty);
-        MxNavColor = !string.IsNullOrEmpty(colorName) ? Colors.FirstOrDefault(d => d.Name == colorName) : Colors[0];
+        AppearingCommand = new Command(() => OnAppearing());
 
         EditApiKeyCommand = new Command(async () =>
         {
             string? setApiKey = await MauiPopupService.ShowPromptAsync("ORS API key", "Enter your ORS API key:", ApiKey);
             if (setApiKey == null && string.IsNullOrEmpty(ApiKey))
-            { await MauiPopupService.ShowAlertAsync("ORS API key", "ORS API key was not set."); }
+            {
+                await MauiPopupService.ShowAlertAsync("ORS API key", "ORS API key was not set.");
+                return;
+            }
+            ApiKey = setApiKey;
         });
 
         BackCommand = new Command(async () =>
@@ -114,7 +119,7 @@ public class SettingsPageViewModel : INotifyPropertyChanged
                     { return; }
                 }
 
-                if (!string.IsNullOrEmpty(MxNavName) && MxNavName != favDeviceName)
+                if (!string.IsNullOrEmpty(MxNavName) && MxNavName != originalMxNavName)
                 {
                     foreach (var msg in NameMessage.CreateNameMessages(MxNavName))
                     {
@@ -123,7 +128,7 @@ public class SettingsPageViewModel : INotifyPropertyChanged
                         catch (BleWriteFailedException)
                         { return; }
                     }
-                    favDeviceName = MxNavName;
+                    originalMxNavName = MxNavName;
 
                     await bleSender.Disconnect();
                     await bleSender.ScanDevicesAsync(timeout: 5);
@@ -133,25 +138,42 @@ public class SettingsPageViewModel : INotifyPropertyChanged
             await Shell.Current.GoToAsync("..");
         });
 
-        SaveCommand = new Command(() =>
+        SaveCommand = new Command(
+            execute: () =>
         {
             Preferences.Default.Set(Constants.API_KEY_KEY, ApiKey);
             Preferences.Default.Set(Constants.MX_NAV_NAME_KEY, MxNavName);
             Preferences.Default.Set(Constants.MX_NAV_COLOR_KEY, MxNavColor?.Name);
-            IsSaved = true;
+
+            originalApiKey = ApiKey;
+            originalMxNavName = MxNavName;
+            originalMxNavColor = MxNavColor;
+
             NotifyUI();
-        });
+        },
+            canExecute: () => ApiKey != originalApiKey || MxNavName != originalMxNavName || MxNavColor != originalMxNavColor
+        );
+
+        var colorName = Preferences.Default.Get(Constants.MX_NAV_COLOR_KEY, string.Empty);
+        ApiKey = Preferences.Default.Get(Constants.API_KEY_KEY, string.Empty);
+        MxNavName = Preferences.Default.Get(Constants.MX_NAV_NAME_KEY, string.Empty);
+        MxNavColor = !string.IsNullOrEmpty(colorName) ? Colors.FirstOrDefault(d => d.Name == colorName) : Colors[0];
+
+        originalApiKey = ApiKey;
+        originalMxNavName = MxNavName;
+        originalMxNavColor = MxNavColor;
 
         NotifyUI();
     }
+
+    private void OnAppearing() => IsConnected = bleConnectionState.IsConnected;
 
     private void NotifyUI()
     {
         OnPropertyChanged(nameof(ApiKey));
         OnPropertyChanged(nameof(MxNavName));
         OnPropertyChanged(nameof(MxNavColor));
-        OnPropertyChanged(nameof(IsSaved));
-        OnPropertyChanged(nameof(SaveStatusText));
         OnPropertyChanged(nameof(Colors));
+        ((Command)SaveCommand).ChangeCanExecute();
     }
 }
