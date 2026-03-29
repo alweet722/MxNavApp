@@ -118,6 +118,8 @@ public class SettingsPageViewModel : INotifyPropertyChanged
             if (ApiKey != originalApiKey)
             { originalApiKey = ApiKey; }
 
+            NotifyUI();
+
             if (!bleConnectionState.IsConnected)
             { return; }
 
