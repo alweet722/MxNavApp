@@ -1,32 +1,32 @@
-﻿using CommunityToolkit.Maui.Extensions;
-using NBNavApp.Common.Interfaces;
-using NBNavApp.Pages;
-using NBNavApp.ViewModels;
+﻿//using CommunityToolkit.Maui.Extensions;
+//using NBNavApp.Common.Interfaces;
+//using NBNavApp.Pages;
+//using NBNavApp.ViewModels;
 
-namespace NBNavApp.Common.Util;
+//namespace NBNavApp.Common.Util;
 
-internal class SettingsDialogService : ISettingsDialogService
-{
-    public async Task<SettingsDialogResult?> ShowSettingsDialogAsync(string? mxNavName, ColorEntry? mxNavColor)
-    {
-        var page = Application.Current?.Windows.FirstOrDefault()?.Page;
-        if (page is null)
-        { return null; }
+//internal class SettingsDialogService : ISettingsDialogService
+//{
+//    public async Task<SettingsDialogResult?> ShowSettingsDialogAsync(string? mxNavName, ColorEntry? mxNavColor)
+//    {
+//        var page = Application.Current?.Windows.FirstOrDefault()?.Page;
+//        if (page is null)
+//        { return null; }
 
-        SettingsPopup? settingsPopup = null;
-        SettingsDialogResult? dialogResult = null;
+//        SettingsPage? settingsPopup = null;
+//        SettingsDialogResult? dialogResult = null;
 
-        var vm = new SettingsPopupViewModel(
-            close: async r =>
-            {
-                dialogResult = r;
-                settingsPopup?.CloseAsync();
-            });
+//        var vm = new SettingsPageViewModel(
+//            close: async r =>
+//            {
+//                dialogResult = r;
+//                settingsPopup?.CloseAsync();
+//            });
 
-        settingsPopup = new(vm);
+//        settingsPopup = new(vm);
 
-        await page.ShowPopupAsync(settingsPopup);
+//        await page.ShowPopupAsync(settingsPopup);
 
-        return dialogResult;
-    }
-}
+//        return dialogResult;
+//    }
+//}

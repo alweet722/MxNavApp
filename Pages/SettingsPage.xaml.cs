@@ -3,9 +3,9 @@ using NBNavApp.ViewModels;
 
 namespace NBNavApp.Pages;
 
-public partial class SettingsPopup : Popup
+public partial class SettingsPage : ContentPage
 {
-	public SettingsPopup(SettingsPopupViewModel vm)
+	public SettingsPage(SettingsPageViewModel vm)
 	{
 		InitializeComponent();
         BindingContext = vm;

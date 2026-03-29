@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+    x:Class="NBNavApp.Pages.SettingsPage"
+    x:DataType="vm:SettingsPageViewModel"
+    xmlns:vm="clr-namespace:NBNavApp.ViewModels">
+
+    <Grid
+        RowSpacing="25"
+        Padding="30,25,30,35"
+        RowDefinitions="30,75,1,30,150,*" 
+        ColumnDefinitions="175,175" 
+        HorizontalOptions="Fill">
+        <Label
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.ColumnSpan="2"
+            Text="General Settings"
+            FontSize="Medium"
+            VerticalOptions="Center" 
+            HorizontalOptions="Start" />
+        <Border
+            Grid.Row="1"
+            Grid.ColumnSpan="2"
+            Stroke="{StaticResource Secondary}"
+            StrokeThickness="2"
+            StrokeShape="RoundRectangle 10,10,10,10"
+            Padding="15,10,15,10">
+            <HorizontalStackLayout
+                VerticalOptions="Center"
+                Spacing="50">
+                <Label
+                Text="OpenRouteService API Key"
+                FontAttributes="Bold"
+                FontSize="16"
+                VerticalOptions="Center" 
+                HorizontalOptions="Start" />
+                <ImageButton
+                Grid.Row="1"
+                Grid.Column="1"
+                BorderColor="{StaticResource Secondary}"
+                BorderWidth="2"
+                BackgroundColor="Transparent"
+                CornerRadius="10"
+                WidthRequest="50"
+                Source="{AppThemeBinding Light=edit_light.png, Dark=edit_dark.png}"
+                HorizontalOptions="End"
+                Command="{Binding EditApiKeyCommand}"/>
+            </HorizontalStackLayout>
+        </Border>
+        <BoxView
+            Grid.Row="2"
+            Grid.ColumnSpan="2"
+            HeightRequest="2"
+            Color="{StaticResource Secondary}"
+            VerticalOptions="Start"/>
+        <Label 
+            Grid.Row="3"
+            Grid.Column="0"
+            Grid.ColumnSpan="2"
+            Text="Device Settings"
+            FontSize="Medium"
+            VerticalOptions="Center" />
+        <Border
+            Grid.Row="4"
+            Grid.ColumnSpan="2"
+            Stroke="{StaticResource Secondary}"
+            StrokeThickness="2"
+            StrokeShape="RoundRectangle 10,10,10,10"
+            Padding="15,10,15,10">
+            <Grid
+                RowSpacing="10"
+                RowDefinitions="50,50" 
+                ColumnDefinitions="150,*"
+                VerticalOptions="Center">
+                <Label 
+                    Grid.Row="0"
+                    Grid.Column="0"
+                    Text="MX Nav Name"
+                    FontAttributes="Bold"
+                    FontSize="16"
+                    VerticalOptions="Center" 
+                    HorizontalOptions="Start"/>
+                <Entry
+                    Grid.Row="0"
+                    Grid.Column="1"
+                    Text="{Binding MxNavName, Mode=TwoWay}"
+                    FontSize="16"
+                    ClearButtonVisibility="WhileEditing"
+                    WidthRequest="150"
+                    HorizontalOptions="End"/>
+                <Label 
+                    Grid.Row="1"
+                    Grid.Column="0"
+                    Text="MX Nav Color"
+                    FontAttributes="Bold"
+                    FontSize="16"
+                    VerticalOptions="Center" 
+                    HorizontalOptions="Start" />
+                <Picker
+                    Grid.Row="1"
+                    Grid.Column="1"
+                    FontSize="16"
+                    ItemsSource="{Binding Colors, Mode=TwoWay}"
+                    ItemDisplayBinding="{Binding Name}"
+                    SelectedItem="{Binding MxNavColor, Mode=TwoWay}"
+                    WidthRequest="150"
+                    HorizontalOptions="End"/>
+            </Grid>
+        </Border>
+        <Label 
+            Grid.Row="5"
+            Grid.Column="0"
+            Text="{Binding SaveStatusText}"
+            FontSize="16"
+            VerticalOptions="End" 
+            HorizontalOptions="Start" />
+        <Button
+            Grid.Row="5"
+            Grid.Column="1"
+            Text="Save"
+            Command="{Binding SaveCommand}"
+            HeightRequest="50"
+            WidthRequest="120"
+            HorizontalOptions="End"
+            VerticalOptions="End"/>
+        <Button
+            Grid.Row="5"
+            Grid.Column="0"
+            Text="Back"
+            Command="{Binding BackCommand}"
+            HeightRequest="50"
+            WidthRequest="120"
+            HorizontalOptions="Start"
+            VerticalOptions="End"/>
+    </Grid>
+</ContentPage>

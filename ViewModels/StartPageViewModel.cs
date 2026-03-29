@@ -14,7 +14,6 @@ public partial class StartPageViewModel : INotifyPropertyChanged
     readonly BleSender bleSender;
     readonly BleStateMonitor bleStateMonitor;
 
-    private readonly ISettingsDialogService settingsDialog;
     public ObservableCollection<DeviceData> FoundDevices { get; } = new();
 
     public string? MxNavName { get; set; }
@@ -117,10 +116,9 @@ public partial class StartPageViewModel : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
     void OnPropertyChanged(string n) => PropertyChanged?.Invoke(this, new(n));
 
-    public StartPageViewModel(BleSender bleSender, BleStateMonitor bleStateMonitor, ISettingsDialogService settingsDialog)
+    public StartPageViewModel(BleSender bleSender, BleStateMonitor bleStateMonitor)
     {
         this.bleSender = bleSender;
-        this.settingsDialog = settingsDialog;
         this.bleStateMonitor = bleStateMonitor;
 
         fav = Preferences.Default.Get(Constants.MX_NAV_NAME_KEY, string.Empty);
@@ -165,48 +163,46 @@ public partial class StartPageViewModel : INotifyPropertyChanged
             MyDeviceIsSelected = false;
         });
 
-        OpenSettingsCommand = new Command(
-            execute: async () =>
+        OpenSettingsCommand = new Command(async () =>
         {
-            SettingsOpen = true;
-            NotifyUi();
+            await Shell.Current.GoToAsync("SettingsPage");
+            //    SettingsOpen = true;
+            //    NotifyUi();
 
-            var res = await settingsDialog.ShowSettingsDialogAsync(MxNavName, MxNavColor);
-            if (res == null)
-            { return; }
+            //    var res = await settingsDialog.ShowSettingsDialogAsync(MxNavName, MxNavColor);
+            //    if (res == null)
+            //    { return; }
 
-            MxNavName = res.MxNavName;
-            MxNavColor = res.MxNavColor;
+            //    //MxNavName = res.MxNavName;
+            //    //MxNavColor = res.MxNavColor;
 
-            if (MxNavColor != null)
-            {
-                ColorMessage colorMessage = new(MxNavColor.Color);
-                try
-                { await bleSender.WriteCharacteristicAsync(colorMessage); }
-                catch (BleWriteFailedException)
-                { return; }
-            }
+            //    if (MxNavColor != null)
+            //    {
+            //        ColorMessage colorMessage = new(MxNavColor.Color);
+            //        try
+            //        { await bleSender.WriteCharacteristicAsync(colorMessage); }
+            //        catch (BleWriteFailedException)
+            //        { return; }
+            //    }
 
-            if (!string.IsNullOrEmpty(MxNavName) && MxNavName != fav)
-            {
-                foreach (var msg in NameMessage.CreateNameMessages(MxNavName))
-                {
-                    try
-                    { await bleSender.WriteCharacteristicAsync(msg); }
-                    catch (BleWriteFailedException)
-                    { return; }
-                }
-                fav = MyDevice?.Name = MxNavName;
+            //    if (!string.IsNullOrEmpty(MxNavName) && MxNavName != fav)
+            //    {
+            //        foreach (var msg in NameMessage.CreateNameMessages(MxNavName))
+            //        {
+            //            try
+            //            { await bleSender.WriteCharacteristicAsync(msg); }
+            //            catch (BleWriteFailedException)
+            //            { return; }
+            //        }
+            //        fav = MyDevice?.Name = MxNavName;
 
-                await bleSender.Disconnect();
-                await ScanAsync(5);
-            }
+            //        await bleSender.Disconnect();
+            //        await ScanAsync(5);
+            //    }
 
-            SettingsOpen = false;
-            NotifyUi();
-        },
-            canExecute: () => bleSender.ConnectedDevice != null && !SettingsOpen
-        );
+            //    SettingsOpen = false;
+            //    NotifyUi();
+        });
 
         bleStateMonitor.PeripheralStateChanged += OnPeripheralStateChanged;
     }
