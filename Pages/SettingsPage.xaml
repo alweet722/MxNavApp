@@ -122,8 +122,8 @@
         <Button
             Grid.Row="5"
             Grid.Column="1"
-            Text="Save"
-            Command="{Binding SaveCommand}"
+            Text="Apply"
+            Command="{Binding ApplyCommand}"
             HeightRequest="50"
             WidthRequest="120"
             HorizontalOptions="End"

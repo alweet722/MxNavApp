@@ -28,7 +28,7 @@ public class SettingsPageViewModel : INotifyPropertyChanged
             if (apiKey == value) return;
             apiKey = value;
             OnPropertyChanged(nameof(ApiKey));
-            ((Command)SaveCommand).ChangeCanExecute();
+            ((Command)ApplyCommand).ChangeCanExecute();
         }
     }
 
@@ -41,7 +41,7 @@ public class SettingsPageViewModel : INotifyPropertyChanged
             if (mxNavName == value) return;
             mxNavName = value;
             OnPropertyChanged(nameof(MxNavName));
-            ((Command)SaveCommand).ChangeCanExecute();
+            ((Command)ApplyCommand).ChangeCanExecute();
         }
     }
 
@@ -54,7 +54,7 @@ public class SettingsPageViewModel : INotifyPropertyChanged
             if (mxNavColor == value) return;
             mxNavColor = value;
             OnPropertyChanged(nameof(MxNavColor));
-            ((Command)SaveCommand).ChangeCanExecute();
+            ((Command)ApplyCommand).ChangeCanExecute();
         }
     }
 
@@ -79,7 +79,7 @@ public class SettingsPageViewModel : INotifyPropertyChanged
     public ICommand AppearingCommand { get; }
     public ICommand EditApiKeyCommand { get; }
     public ICommand BackCommand { get; }
-    public ICommand SaveCommand { get; }
+    public ICommand ApplyCommand { get; }
 
     string? originalApiKey;
     string? originalMxNavName;
@@ -98,56 +98,55 @@ public class SettingsPageViewModel : INotifyPropertyChanged
         EditApiKeyCommand = new Command(async () =>
         {
             string? setApiKey = await MauiPopupService.ShowPromptAsync("ORS API key", "Enter your ORS API key:", ApiKey);
-            if (setApiKey == null && string.IsNullOrEmpty(ApiKey))
-            {
-                await MauiPopupService.ShowAlertAsync("ORS API key", "ORS API key was not set.");
-                return;
-            }
+            if (setApiKey == null)
+            { return; }
             ApiKey = setApiKey;
         });
 
         BackCommand = new Command(async () =>
         {
-            if (bleConnectionState.IsConnected)
-            {
-                if (MxNavColor != null)
-                {
-                    ColorMessage colorMessage = new(MxNavColor.Color);
-                    try
-                    { await bleSender.WriteCharacteristicAsync(colorMessage); }
-                    catch (BleWriteFailedException)
-                    { return; }
-                }
-
-                if (!string.IsNullOrEmpty(MxNavName) && MxNavName != originalMxNavName)
-                {
-                    foreach (var msg in NameMessage.CreateNameMessages(MxNavName))
-                    {
-                        try
-                        { await bleSender.WriteCharacteristicAsync(msg); }
-                        catch (BleWriteFailedException)
-                        { return; }
-                    }
-                    originalMxNavName = MxNavName;
-
-                    await bleSender.Disconnect();
-                    await bleSender.ScanDevicesAsync(timeout: 5);
-                }
-            }
-
             await Shell.Current.GoToAsync("..");
         });
 
-        SaveCommand = new Command(
-            execute: () =>
+        ApplyCommand = new Command(
+            execute: async () =>
         {
             Preferences.Default.Set(Constants.API_KEY_KEY, ApiKey);
             Preferences.Default.Set(Constants.MX_NAV_NAME_KEY, MxNavName);
             Preferences.Default.Set(Constants.MX_NAV_COLOR_KEY, MxNavColor?.Name);
 
-            originalApiKey = ApiKey;
-            originalMxNavName = MxNavName;
-            originalMxNavColor = MxNavColor;
+            if (ApiKey != originalApiKey)
+            { originalApiKey = ApiKey; }
+
+            if (!bleConnectionState.IsConnected)
+            { return; }
+
+            if (MxNavColor != null && MxNavColor != originalMxNavColor)
+            {
+                ColorMessage colorMessage = new(MxNavColor.Color);
+                try
+                { await bleSender.WriteCharacteristicAsync(colorMessage); }
+                catch (BleWriteFailedException)
+                { return; }
+
+                originalMxNavColor = MxNavColor;
+            }
+
+            if (!string.IsNullOrEmpty(MxNavName) && MxNavName != originalMxNavName)
+            {
+                foreach (var msg in NameMessage.CreateNameMessages(MxNavName))
+                {
+                    try
+                    { await bleSender.WriteCharacteristicAsync(msg); }
+                    catch (BleWriteFailedException)
+                    { return; }
+                }
+                originalMxNavName = MxNavName;
+
+                await bleSender.Disconnect();
+                await bleSender.ScanDevicesAsync(timeout: 5);
+
+            }
 
             NotifyUI();
         },
@@ -174,6 +173,6 @@ public class SettingsPageViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(MxNavName));
         OnPropertyChanged(nameof(MxNavColor));
         OnPropertyChanged(nameof(Colors));
-        ((Command)SaveCommand).ChangeCanExecute();
+        ((Command)ApplyCommand).ChangeCanExecute();
     }
 }
