@@ -5,7 +5,6 @@ namespace NBNavApp.Common.Ble;
 public class BleConnectionState : INotifyPropertyChanged
 {
     bool isConnected;
-
     public bool IsConnected
     {
         get => isConnected;

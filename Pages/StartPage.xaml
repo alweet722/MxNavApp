@@ -27,7 +27,8 @@
             Grid.ColumnSpan="2"
             FontSize="Medium"
             Text="My MX-Nav Device"
-            VerticalOptions="Center"/>
+            VerticalOptions="Center"
+            HorizontalOptions="Start"/>
         <Label
             Grid.Row="0"
             Grid.Column="1"

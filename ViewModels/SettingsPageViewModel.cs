@@ -16,8 +16,7 @@ public record ColorEntry(string Name, Color Color);
 
 public class SettingsPageViewModel : INotifyPropertyChanged
 {
-    readonly BleSender bleSender;
-    readonly BleConnectionState bleConnectionState;
+    readonly BleInterface bleInterface;
 
     string? apiKey;
     public string? ApiKey
@@ -88,10 +87,9 @@ public class SettingsPageViewModel : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
     void OnPropertyChanged(string n) => PropertyChanged?.Invoke(this, new(n));
 
-    public SettingsPageViewModel(BleSender bleSender, BleConnectionState bleConnectionState)
+    public SettingsPageViewModel(BleInterface bleInterface)
     {
-        this.bleSender = bleSender;
-        this.bleConnectionState = bleConnectionState;
+        this.bleInterface = bleInterface;
 
         AppearingCommand = new Command(() => OnAppearing());
 
@@ -120,14 +118,14 @@ public class SettingsPageViewModel : INotifyPropertyChanged
 
             NotifyUI();
 
-            if (!bleConnectionState.IsConnected)
+            if (!bleInterface.BleConnectionState.IsConnected)
             { return; }
 
             if (MxNavColor != null && MxNavColor != originalMxNavColor)
             {
                 ColorMessage colorMessage = new(MxNavColor.Color);
                 try
-                { await bleSender.WriteCharacteristicAsync(colorMessage); }
+                { await bleInterface.WriteCharacteristicAsync(colorMessage); }
                 catch (BleWriteFailedException)
                 { return; }
 
@@ -139,14 +137,14 @@ public class SettingsPageViewModel : INotifyPropertyChanged
                 foreach (var msg in NameMessage.CreateNameMessages(MxNavName))
                 {
                     try
-                    { await bleSender.WriteCharacteristicAsync(msg); }
+                    { await bleInterface.WriteCharacteristicAsync(msg); }
                     catch (BleWriteFailedException)
                     { return; }
                 }
                 originalMxNavName = MxNavName;
 
-                await bleSender.Disconnect();
-                await bleSender.ScanDevicesAsync(timeout: 5);
+                await bleInterface.Disconnect();
+                await bleInterface.ScanDevicesAsync(timeout: 5);
 
             }
 
@@ -167,7 +165,7 @@ public class SettingsPageViewModel : INotifyPropertyChanged
         NotifyUI();
     }
 
-    private void OnAppearing() => IsConnected = bleConnectionState.IsConnected;
+    private void OnAppearing() => IsConnected = bleInterface.BleConnectionState.IsConnected;
 
     private void NotifyUI()
     {

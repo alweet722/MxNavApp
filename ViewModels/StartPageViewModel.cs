@@ -1,6 +1,4 @@
 ﻿using NBNavApp.Common.Ble;
-using NBNavApp.Common.Interfaces;
-using NBNavApp.Common.Messages.ParameterMessages;
 using NBNavApp.Common.Util;
 using Shiny.BluetoothLE;
 using System.Collections.ObjectModel;
@@ -11,8 +9,7 @@ namespace NBNavApp.ViewModels;
 
 public partial class StartPageViewModel : INotifyPropertyChanged
 {
-    readonly BleSender bleSender;
-    readonly BleStateMonitor bleStateMonitor;
+    readonly BleInterface bleInterface;
 
     public ObservableCollection<DeviceData> FoundDevices { get; } = new();
 
@@ -97,10 +94,10 @@ public partial class StartPageViewModel : INotifyPropertyChanged
         }
     }
 
-    public bool MyDeviceIsEnabled => MyDevice?.Peripheral != null && bleSender.ConnectedDevice == null;
-    public string ConnectionStatusText => bleSender.ConnectedDevice?.Name ?? "Disconnected";
-    public string ConnectButtonText => bleSender.ConnectedDevice != null ? "Disconnect" : "Connect";
-    public bool CanGoNext => bleSender.ConnectedDevice != null;
+    public bool MyDeviceIsEnabled => MyDevice?.Peripheral != null && bleInterface.ConnectedDevice == null;
+    public string ConnectionStatusText => bleInterface.ConnectedDevice?.Name ?? "Disconnected";
+    public string ConnectButtonText => bleInterface.ConnectedDevice != null ? "Disconnect" : "Connect";
+    public bool CanRoute => bleInterface.ConnectedDevice != null;
     public DeviceData? SelectedForConnect => MyDeviceIsSelected ? MyDevice : SelectedFoundDevice;
 
     public ICommand AppearingCommand { get; }
@@ -116,10 +113,9 @@ public partial class StartPageViewModel : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
     void OnPropertyChanged(string n) => PropertyChanged?.Invoke(this, new(n));
 
-    public StartPageViewModel(BleSender bleSender, BleStateMonitor bleStateMonitor)
+    public StartPageViewModel(BleInterface bleInterface)
     {
-        this.bleSender = bleSender;
-        this.bleStateMonitor = bleStateMonitor;
+        this.bleInterface = bleInterface;
 
         favDeviceName = Preferences.Default.Get(Constants.MX_NAV_NAME_KEY, string.Empty);
         if (Preferences.Default.ContainsKey(Constants.MX_NAV_NAME_KEY) && !string.IsNullOrEmpty(favDeviceName))
@@ -144,7 +140,7 @@ public partial class StartPageViewModel : INotifyPropertyChanged
 
         ToggleConnectCommand = new Command(
             execute: async () => await ToggleConnectAsync(),
-            canExecute: () => (SelectedForConnect?.Peripheral != null || bleSender.ConnectedDevice != null) && !IsConnecting
+            canExecute: () => (SelectedForConnect?.Peripheral != null || bleInterface.ConnectedDevice != null) && !IsConnecting
             );
 
         GoToRouteCommand = new Command(async () =>
@@ -174,10 +170,10 @@ public partial class StartPageViewModel : INotifyPropertyChanged
             await Shell.Current.GoToAsync("SettingsPage");
         });
 
-        bleStateMonitor.PeripheralStateChanged += OnPeripheralStateChanged;
+        bleInterface.BleConnectionStateChanged += OnBleConnectionStateChanged;
     }
 
-    private void OnPeripheralStateChanged(object? sender, BleStateEventArgs e)
+    private void OnBleConnectionStateChanged(object? sender, BleStateEventArgs e)
     {
         NotifyUi();
     }
@@ -198,7 +194,7 @@ public partial class StartPageViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(MyDeviceIsEnabled));
         OnPropertyChanged(nameof(ConnectionStatusText));
         OnPropertyChanged(nameof(ConnectButtonText));
-        OnPropertyChanged(nameof(CanGoNext));
+        OnPropertyChanged(nameof(CanRoute));
         OnPropertyChanged(nameof(SettingsOpen));
 
         ((Command)ToggleConnectCommand).ChangeCanExecute();
@@ -214,7 +210,7 @@ public partial class StartPageViewModel : INotifyPropertyChanged
     {
         try
         {
-            Shiny.AccessState access = await bleSender.BleManager.RequestAccessAsync();
+            Shiny.AccessState access = await bleInterface.BleManager.RequestAccessAsync();
             if (access != Shiny.AccessState.Available)
             {
                 IsScanning = false;
@@ -224,7 +220,7 @@ public partial class StartPageViewModel : INotifyPropertyChanged
 
             FoundDevices.Clear();
 
-            await bleSender.ScanDevicesAsync(FoundDevices, timeout);
+            await bleInterface.ScanDevicesAsync(FoundDevices, timeout);
 
             if (!string.IsNullOrEmpty(favDeviceName))
             {
@@ -244,14 +240,12 @@ public partial class StartPageViewModel : INotifyPropertyChanged
 
     private async Task ToggleConnectAsync()
     {
-        if (bleSender.ConnectedDevice != null)
+        if (bleInterface.ConnectedDevice != null)
         {
-            await bleSender.Disconnect();
+            await bleInterface.Disconnect();
 
             SelectedFoundDevice = null;
             MyDeviceIsSelected = false;
-
-            NotifyUi();
 
             await ScanAsync(2);
             return;
@@ -261,32 +255,30 @@ public partial class StartPageViewModel : INotifyPropertyChanged
         { return; }
 
         IsConnecting = true;
-        bool status = await bleSender.ConnectAndCacheCharacteristic(SelectedForConnect.Peripheral);
+        bool status = await bleInterface.ConnectAndCacheCharacteristic(SelectedForConnect.Peripheral);
 
-        if (!status || bleSender.ConnectedDevice == null)
+        if (!status || bleInterface.ConnectedDevice == null)
         {
             IsConnecting = false;
             MyDevice = new(0, "N/A", favDeviceName);
             MyDeviceIsSelected = false;
-            NotifyUi();
+
             return;
         }
 
-        Preferences.Default.Set(Constants.MX_NAV_NAME_KEY, bleSender.ConnectedDevice?.Name);
-        favDeviceName = bleSender.ConnectedDevice?.Name ?? favDeviceName;
+        Preferences.Default.Set(Constants.MX_NAV_NAME_KEY, bleInterface.ConnectedDevice?.Name);
+        favDeviceName = bleInterface.ConnectedDevice?.Name ?? favDeviceName;
 
-        MyDevice = new(0, bleSender.ConnectedDevice.Uuid, favDeviceName, bleSender.ConnectedDevice);
+        MyDevice = new(0, bleInterface.ConnectedDevice.Uuid, favDeviceName, bleInterface.ConnectedDevice);
 
         MyDeviceIsSelected = false;
         IsConnecting = false;
         SelectedFoundDevice = null;
-
-        NotifyUi();
     }
 
     public async Task DisposeAsync()
     {
-        await bleSender.Disconnect();
+        await bleInterface.Disconnect();
         SelectedFoundDevice = null;
         MyDeviceIsSelected = false;
 

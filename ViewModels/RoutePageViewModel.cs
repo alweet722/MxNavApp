@@ -21,6 +21,7 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
     }
 
     readonly NavigationService navigationService;
+    readonly BleInterface bleSender;
     readonly MapService mapService;
 
     (double lat, double lon) startLocation;
@@ -160,9 +161,10 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
     void OnPropertyChanged(string n) => PropertyChanged?.Invoke(this, new(n));
 
-    public RoutePageViewModel(NavigationService navigationService, BleStateMonitor bleStateMonitor, BleConnectionState bleConnectionState)
+    public RoutePageViewModel(NavigationService navigationService, BleInterface bleInterface)
     {
         this.navigationService = navigationService;
+        this.bleSender = bleInterface;
 
         mapService = new(Map);
 
@@ -192,19 +194,19 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
         (double x, double y) defaultCenter = SphericalMercator.FromLonLat(13.723076680216279, 51.05120761645636);
         Map.Navigator.CenterOnAndZoomTo(defaultCenter.ToMPoint(), 10);
 
-        navigationService.Initialize(new NavigationManager(bleConnectionState));
+        navigationService.Initialize(new NavigationManager(bleInterface));
         navigationService.LocationUpdated += OnLocationUpdated;
         navigationService.NavigationStarted += (s, e) => OnNavigationStarted();
         navigationService.NavigationStopped += (s, e) => OnNavigationStopped();
         navigationService.NavigationPaused += (s, e) => OnNavigationPaused();
         navigationService.RouteUpdated += OnRouteUpdated;
 
-        bleStateMonitor.PeripheralStateChanged += OnPeripheralStateChanged;
+        bleInterface.BleConnectionStateChanged += OnBleConnectionStateChanged;
     }
 
-    private void OnPeripheralStateChanged(object sender, BleStateEventArgs e)
+    private void OnBleConnectionStateChanged(object sender, BleStateEventArgs e)
     {
-        if (e.State == ConnectionState.Disconnected)
+        if (e.State == ConnectionState.Disconnected && navigationService.IsNavigating)
         {
             MainThread.BeginInvokeOnMainThread(async () =>
             {
@@ -229,9 +231,9 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
         {
             if (!await MauiPopupService.ShowAlertAsync("Navigation", "Do you want to stop the navigation?", "Yes", "No"))
             { return; }
+            await StopDriveAsync(0);
         }
-
-        await StopDriveAsync(0);
+        
         await Shell.Current.GoToAsync("..");
     }
 

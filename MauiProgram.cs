@@ -32,10 +32,10 @@ public static class MauiProgram
         builder.Services.AddSingleton<RoutePageViewModel>();
         builder.Services.AddTransient<SettingsPage>();
         builder.Services.AddSingleton<SettingsPageViewModel>();
+        builder.Services.AddBluetoothLE<BleStateMonitor>();
         builder.Services.AddSingleton<BleConnectionState>();
-        builder.Services.AddSingleton<BleStateMonitor>();
         builder.Services.AddSingleton<NavigationManager>();
-        builder.Services.AddSingleton<BleSender>();
+        builder.Services.AddSingleton<BleInterface>();
         builder.Services.AddSingleton<NavigationService>();
 
 #if DEBUG
