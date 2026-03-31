@@ -82,23 +82,12 @@ public partial class StartPageViewModel : INotifyPropertyChanged
         }
     }
 
-    bool settingsOpen;
-    public bool SettingsOpen
-    {
-        get => settingsOpen;
-        set
-        {
-            if (settingsOpen == value) return;
-            settingsOpen = value;
-            OnPropertyChanged(nameof(SettingsOpen));
-        }
-    }
-
     public bool MyDeviceIsEnabled => MyDevice?.Peripheral != null && bleInterface.ConnectedDevice == null;
-    public string ConnectionStatusText => bleInterface.ConnectedDevice?.Name ?? "Disconnected";
+    public string ConnectionStateText => bleInterface.ConnectedDevice?.Name ?? string.Empty;
     public string ConnectButtonText => bleInterface.ConnectedDevice != null ? "Disconnect" : "Connect";
     public bool CanRoute => bleInterface.ConnectedDevice != null;
     public DeviceData? SelectedForConnect => MyDeviceIsSelected ? MyDevice : SelectedFoundDevice;
+    public ImageSource ConnectionImage => bleInterface.BleConnectionState.IsConnected ? "connection.png" : "no_connection.png";
 
     public ICommand AppearingCommand { get; }
     public ICommand ScanCommand { get; }
@@ -192,10 +181,10 @@ public partial class StartPageViewModel : INotifyPropertyChanged
     {
         OnPropertyChanged(nameof(MyDevice));
         OnPropertyChanged(nameof(MyDeviceIsEnabled));
-        OnPropertyChanged(nameof(ConnectionStatusText));
+        OnPropertyChanged(nameof(ConnectionStateText));
         OnPropertyChanged(nameof(ConnectButtonText));
+        OnPropertyChanged(nameof(ConnectionImage));
         OnPropertyChanged(nameof(CanRoute));
-        OnPropertyChanged(nameof(SettingsOpen));
 
         ((Command)ToggleConnectCommand).ChangeCanExecute();
         ((Command)OpenSettingsCommand).ChangeCanExecute();

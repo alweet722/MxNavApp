@@ -19,6 +19,15 @@
         RowDefinitions="30,50,30,50,30,30,50,*,50,50" 
         ColumnDefinitions="290,*" 
         HorizontalOptions="Fill">
+        <Image
+            Grid.Row="0"
+            Grid.Column="2"
+            Source="{Binding ConnectionImage}"
+            HeightRequest="35"
+            WidthRequest="45"
+            VerticalOptions="Center"
+            HorizontalOptions="End">
+        </Image>
         <Label 
             Grid.Row="0"
             Grid.ColumnSpan="2"

@@ -30,8 +30,9 @@ public class BleInterface
 
     private void OnPeripheralStateChanged(object sender, BleStateEventArgs e)
     {
-        BleConnectionStateChanged?.Invoke(this, e);
         BleConnectionState.IsConnected = e.State == ConnectionState.Connected;
+        ConnectedDevice = e.ConnectedDevice;
+        BleConnectionStateChanged?.Invoke(this, e);
     }
 
     public async Task<List<DeviceData>> ScanDevicesAsync(ObservableCollection<DeviceData>? table = null, int timeout = 10)
@@ -77,34 +78,29 @@ public class BleInterface
         scanSub = null;
 
         ConnectedDevice?.CancelConnection();
-        ConnectedDevice = peripheral;
 
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(15));
         try
-        { await ConnectedDevice.ConnectAsync(null, cts.Token); }
+        { await peripheral.ConnectAsync(null, cts.Token); }
         catch (TaskCanceledException)
         {
-            ConnectedDevice = null;
             await MauiPopupService.ShowAlertAsync("BLE", "Connection timed out.");
             return false;
         }
 
         try
-        { navChar = await ConnectedDevice.GetCharacteristicAsync(Constants.SERVICE_UUID, Constants.NAV_UUID, cts.Token); }
+        { navChar = await peripheral.GetCharacteristicAsync(Constants.SERVICE_UUID, Constants.NAV_UUID, cts.Token); }
         catch (TaskCanceledException)
         {
-            ConnectedDevice.CancelConnection();
-            ConnectedDevice = null;
+            peripheral.CancelConnection();
             await MauiPopupService.ShowAlertAsync("BLE", "Timeout while getting navigation characteristic.");
             return false;
         }
         catch (Exception ex)
         {
-            ConnectedDevice.CancelConnection();
-            ConnectedDevice = null;
+            peripheral.CancelConnection();
             await MauiPopupService.ShowAlertAsync("BLE", $"{ex.Message}");
         }
-
         return BleConnectionState.IsConnected;
     }
 
@@ -135,7 +131,6 @@ public class BleInterface
     public async Task Disconnect()
     {
         ConnectedDevice?.CancelConnection();
-        ConnectedDevice = null;
         scanSub?.Dispose();
         scanSub = null;
     }

@@ -69,6 +69,8 @@ public class SettingsPageViewModel : INotifyPropertyChanged
         }
     }
 
+    public ImageSource ConnectionImage => bleInterface.BleConnectionState.IsConnected ? "connection.png" : "no_connection.png";
+
     public List<ColorEntry> Colors { get; } = new()
     {
         { new("Dashboard green", new Color(180, 250, 0))},
@@ -116,7 +118,7 @@ public class SettingsPageViewModel : INotifyPropertyChanged
             if (ApiKey != originalApiKey)
             { originalApiKey = ApiKey; }
 
-            NotifyUI();
+            NotifyUi();
 
             if (!bleInterface.BleConnectionState.IsConnected)
             { return; }
@@ -147,8 +149,7 @@ public class SettingsPageViewModel : INotifyPropertyChanged
                 await bleInterface.ScanDevicesAsync(timeout: 5);
 
             }
-
-            NotifyUI();
+            NotifyUi();
         },
             canExecute: () => ApiKey != originalApiKey || MxNavName != originalMxNavName || MxNavColor != originalMxNavColor
         );
@@ -162,17 +163,24 @@ public class SettingsPageViewModel : INotifyPropertyChanged
         originalMxNavName = MxNavName;
         originalMxNavColor = MxNavColor;
 
-        NotifyUI();
+        bleInterface.BleConnectionStateChanged += OnBleConnectionStateChanged;
+        NotifyUi();
+    }
+
+    private void OnBleConnectionStateChanged(object? sender, BleStateEventArgs e)
+    {
+        NotifyUi();
     }
 
     private void OnAppearing() => IsConnected = bleInterface.BleConnectionState.IsConnected;
 
-    private void NotifyUI()
+    private void NotifyUi()
     {
         OnPropertyChanged(nameof(ApiKey));
         OnPropertyChanged(nameof(MxNavName));
         OnPropertyChanged(nameof(MxNavColor));
         OnPropertyChanged(nameof(Colors));
+        OnPropertyChanged(nameof(ConnectionImage));
         ((Command)ApplyCommand).ChangeCanExecute();
     }
 }

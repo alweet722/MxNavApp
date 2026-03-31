@@ -21,11 +21,9 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
     }
 
     readonly NavigationService navigationService;
-    readonly BleInterface bleSender;
+    readonly BleInterface bleInterface;
     readonly MapService mapService;
 
-    (double lat, double lon) startLocation;
-    (double lat, double lon) destLocation;
     List<string> avoidFeatures = new();
 
     bool isRouting;
@@ -124,6 +122,7 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
         }
     }
 
+    private (double lat, double lon) startLocation;
     public (double lat, double lon) StartLocation
     {
         get => startLocation;
@@ -135,6 +134,7 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
         }
     }
 
+    private (double lat, double lon) destLocation;
     public (double lat, double lon) DestLocation
     {
         get => destLocation;
@@ -145,6 +145,8 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(DestLocation));
         }
     }
+
+    public ImageSource ConnectionImage => bleInterface.BleConnectionState.IsConnected ? "connection.png" : "no_connection.png";
 
     public Mapsui.Map Map { get; } = new()
     {
@@ -164,7 +166,7 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
     public RoutePageViewModel(NavigationService navigationService, BleInterface bleInterface)
     {
         this.navigationService = navigationService;
-        this.bleSender = bleInterface;
+        this.bleInterface = bleInterface;
 
         mapService = new(Map);
 
@@ -213,12 +215,14 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
                 await StopDriveAsync();
             });
         }
+        NotifyUi();
     }
 
     public void NotifyUi()
     {
         OnPropertyChanged(nameof(IsRouting));
         OnPropertyChanged(nameof(IsDriving));
+        OnPropertyChanged(nameof(ConnectionImage));
 
         ((Command)RouteCommand).ChangeCanExecute();
         ((Command)DriveCommand).ChangeCanExecute();
@@ -233,7 +237,7 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
             { return; }
             await StopDriveAsync(0);
         }
-        
+
         await Shell.Current.GoToAsync("..");
     }
 
