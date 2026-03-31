@@ -16,8 +16,7 @@ public record ColorEntry(string Name, Color Color);
 
 public class SettingsPageViewModel : INotifyPropertyChanged
 {
-    readonly BleSender bleSender;
-    readonly BleConnectionState bleConnectionState;
+    readonly BleInterface bleInterface;
 
     string? apiKey;
     public string? ApiKey
@@ -70,6 +69,8 @@ public class SettingsPageViewModel : INotifyPropertyChanged
         }
     }
 
+    public ImageSource ConnectionImage => bleInterface.BleConnectionState.IsConnected ? "connection.png" : "no_connection.png";
+
     public List<ColorEntry> Colors { get; } = new()
     {
         { new("Dashboard green", new Color(180, 250, 0))},
@@ -88,10 +89,9 @@ public class SettingsPageViewModel : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
     void OnPropertyChanged(string n) => PropertyChanged?.Invoke(this, new(n));
 
-    public SettingsPageViewModel(BleSender bleSender, BleConnectionState bleConnectionState)
+    public SettingsPageViewModel(BleInterface bleInterface)
     {
-        this.bleSender = bleSender;
-        this.bleConnectionState = bleConnectionState;
+        this.bleInterface = bleInterface;
 
         AppearingCommand = new Command(() => OnAppearing());
 
@@ -118,16 +118,16 @@ public class SettingsPageViewModel : INotifyPropertyChanged
             if (ApiKey != originalApiKey)
             { originalApiKey = ApiKey; }
 
-            NotifyUI();
+            NotifyUi();
 
-            if (!bleConnectionState.IsConnected)
+            if (!bleInterface.BleConnectionState.IsConnected)
             { return; }
 
             if (MxNavColor != null && MxNavColor != originalMxNavColor)
             {
                 ColorMessage colorMessage = new(MxNavColor.Color);
                 try
-                { await bleSender.WriteCharacteristicAsync(colorMessage); }
+                { await bleInterface.WriteCharacteristicAsync(colorMessage); }
                 catch (BleWriteFailedException)
                 { return; }
 
@@ -139,18 +139,17 @@ public class SettingsPageViewModel : INotifyPropertyChanged
                 foreach (var msg in NameMessage.CreateNameMessages(MxNavName))
                 {
                     try
-                    { await bleSender.WriteCharacteristicAsync(msg); }
+                    { await bleInterface.WriteCharacteristicAsync(msg); }
                     catch (BleWriteFailedException)
                     { return; }
                 }
                 originalMxNavName = MxNavName;
 
-                await bleSender.Disconnect();
-                await bleSender.ScanDevicesAsync(timeout: 5);
+                await bleInterface.Disconnect();
+                await bleInterface.ScanDevicesAsync(timeout: 5);
 
             }
-
-            NotifyUI();
+            NotifyUi();
         },
             canExecute: () => ApiKey != originalApiKey || MxNavName != originalMxNavName || MxNavColor != originalMxNavColor
         );
@@ -164,17 +163,24 @@ public class SettingsPageViewModel : INotifyPropertyChanged
         originalMxNavName = MxNavName;
         originalMxNavColor = MxNavColor;
 
-        NotifyUI();
+        bleInterface.BleConnectionStateChanged += OnBleConnectionStateChanged;
+        NotifyUi();
     }
 
-    private void OnAppearing() => IsConnected = bleConnectionState.IsConnected;
+    private void OnBleConnectionStateChanged(object? sender, BleStateEventArgs e)
+    {
+        NotifyUi();
+    }
 
-    private void NotifyUI()
+    private void OnAppearing() => IsConnected = bleInterface.BleConnectionState.IsConnected;
+
+    private void NotifyUi()
     {
         OnPropertyChanged(nameof(ApiKey));
         OnPropertyChanged(nameof(MxNavName));
         OnPropertyChanged(nameof(MxNavColor));
         OnPropertyChanged(nameof(Colors));
+        OnPropertyChanged(nameof(ConnectionImage));
         ((Command)ApplyCommand).ChangeCanExecute();
     }
 }

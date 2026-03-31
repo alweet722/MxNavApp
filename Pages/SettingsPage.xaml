@@ -17,8 +17,17 @@
         RowSpacing="25"
         Padding="30,25,30,35"
         RowDefinitions="30,75,1,30,150,*" 
-        ColumnDefinitions="175,175" 
+        ColumnDefinitions="175,*" 
         HorizontalOptions="Fill">
+        <Image
+            Grid.Row="0"
+            Grid.Column="2"
+            Source="{Binding ConnectionImage}"
+            HeightRequest="35"
+            WidthRequest="45"
+            VerticalOptions="Center"
+            HorizontalOptions="End">
+        </Image>
         <Label
             Grid.Row="0"
             Grid.Column="0"

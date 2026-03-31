@@ -6,19 +6,33 @@ using System.ComponentModel;
 
 namespace NBNavApp.Common.Ble;
 
-public class BleSender
+public class BleInterface
 {
     BleCharacteristicInfo? navChar;
     IDisposable? scanSub;
 
+    readonly BleStateMonitor bleStateMonitor;
+
     public IBleManager BleManager { get; set; }
     public IPeripheral? ConnectedDevice { get; set; }
-    public BleConnectionState ConnectionState { get; }
+    public BleConnectionState BleConnectionState { get; set; }
 
-    public BleSender(BleConnectionState connState, IBleManager bleManager)
+    public event BleStateMonitorEventHandler? BleConnectionStateChanged;
+
+    public BleInterface(IBleManager bleManager, BleConnectionState bleConnectionState, BleStateMonitor bleStateMonitor)
     {
-        ConnectionState = connState;
+        BleConnectionState = bleConnectionState;
         BleManager = bleManager;
+        this.bleStateMonitor = bleStateMonitor;
+
+        bleStateMonitor.PeripheralStateChanged += OnPeripheralStateChanged;
+    }
+
+    private void OnPeripheralStateChanged(object sender, BleStateEventArgs e)
+    {
+        BleConnectionState.IsConnected = e.State == ConnectionState.Connected;
+        ConnectedDevice = e.ConnectedDevice;
+        BleConnectionStateChanged?.Invoke(this, e);
     }
 
     public async Task<List<DeviceData>> ScanDevicesAsync(ObservableCollection<DeviceData>? table = null, int timeout = 10)
@@ -64,35 +78,30 @@ public class BleSender
         scanSub = null;
 
         ConnectedDevice?.CancelConnection();
-        ConnectedDevice = peripheral;
 
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(15));
         try
-        { await ConnectedDevice.ConnectAsync(null, cts.Token); }
+        { await peripheral.ConnectAsync(null, cts.Token); }
         catch (TaskCanceledException)
         {
-            ConnectedDevice = null;
             await MauiPopupService.ShowAlertAsync("BLE", "Connection timed out.");
             return false;
         }
 
         try
-        { navChar = await ConnectedDevice.GetCharacteristicAsync(Constants.SERVICE_UUID, Constants.NAV_UUID, cts.Token); }
+        { navChar = await peripheral.GetCharacteristicAsync(Constants.SERVICE_UUID, Constants.NAV_UUID, cts.Token); }
         catch (TaskCanceledException)
         {
-            ConnectedDevice.CancelConnection();
-            ConnectedDevice = null;
+            peripheral.CancelConnection();
             await MauiPopupService.ShowAlertAsync("BLE", "Timeout while getting navigation characteristic.");
             return false;
         }
         catch (Exception ex)
         {
-            ConnectedDevice.CancelConnection();
-            ConnectedDevice = null;
+            peripheral.CancelConnection();
             await MauiPopupService.ShowAlertAsync("BLE", $"{ex.Message}");
         }
-
-        return ConnectionState.IsConnected = true;
+        return BleConnectionState.IsConnected;
     }
 
     public async Task WriteCharacteristicAsync(BleMessage message)
@@ -122,8 +131,6 @@ public class BleSender
     public async Task Disconnect()
     {
         ConnectedDevice?.CancelConnection();
-        ConnectedDevice = null;
-        ConnectionState.IsConnected = false;
         scanSub?.Dispose();
         scanSub = null;
     }

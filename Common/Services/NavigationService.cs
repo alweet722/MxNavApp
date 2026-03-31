@@ -21,7 +21,7 @@ public class LocationUpdateEventArgs : EventArgs
 
 public class NavigationService
 {
-    readonly BleSender bleSender;
+    readonly BleInterface bleInterface;
     readonly OffRouteDetector offRouteDetector = new();
     readonly WrongWayDetector wrongWayDetector = new();
 
@@ -57,9 +57,10 @@ public class NavigationService
     public event EventHandler<EventArgs>? NavigationPaused;
     public event EventHandler<List<(double lon, double lat)>>? RouteUpdated;
 
-    public NavigationService(BleSender bleSender)
+    public NavigationService(BleInterface bleInterface)
     {
-        this.bleSender = bleSender;
+        this.bleInterface = bleInterface;
+
         OffRouteDetector.GoneOffRoute += OnGoneOffRoute;
         OffRouteDetector.ReturnedOnRoute += OnReturnedOnRoute;
         WrongWayDetector.GoingWrongWay += OnGoingWrongWay;
@@ -110,7 +111,7 @@ public class NavigationService
             return;
         }
 
-        if (!bleSender.ConnectionState.IsConnected)
+        if (!bleInterface.BleConnectionState.IsConnected)
         {
             await MauiPopupService.ShowAlertAsync("BLE", "Connection lost.");
             return;
@@ -119,7 +120,10 @@ public class NavigationService
         try
         { await Geolocation.GetLocationAsync(); }
         catch (FeatureNotEnabledException)
-        { await MauiPopupService.ShowAlertAsync("Navigation", "Geolocation is switched off."); return; }
+        {
+            await MauiPopupService.ShowAlertAsync("Navigation", "Geolocation is switched off.");
+            return;
+        }
 
         if (navState == null)
         {
@@ -141,7 +145,7 @@ public class NavigationService
 
         EtaMessage etaMsg = new(timeToDest);
         try
-        { await bleSender.WriteCharacteristicAsync(etaMsg); }
+        { await bleInterface.WriteCharacteristicAsync(etaMsg); }
         catch (BleWriteFailedException)
         {
             await StopNavigationAsync();
@@ -150,7 +154,7 @@ public class NavigationService
 
         DistMessage distMsg = new((uint)totalDist[^1]);
         try
-        { await bleSender.WriteCharacteristicAsync(distMsg); }
+        { await bleInterface.WriteCharacteristicAsync(distMsg); }
         catch (BleWriteFailedException)
         {
             await StopNavigationAsync();
@@ -170,7 +174,7 @@ public class NavigationService
         IsNavigating = false;
 
         try
-        { await bleSender.WriteCharacteristicAsync(new ResetMessage()); }
+        { await bleInterface.WriteCharacteristicAsync(new ResetMessage()); }
         catch (BleWriteFailedException)
         { return; }
         NavigationPaused?.Invoke(this, EventArgs.Empty);
@@ -203,7 +207,7 @@ public class NavigationService
 
 #endif
 
-        if (!bleSender.ConnectionState.IsConnected)
+        if (!bleInterface.BleConnectionState.IsConnected)
         {
             NavigationStopped?.Invoke(this, EventArgs.Empty);
             return;
@@ -213,13 +217,14 @@ public class NavigationService
         { await Task.Delay(TimeSpan.FromSeconds(delay)); }
 
         try
-        { await bleSender.WriteCharacteristicAsync(new ResetMessage()); }
+        { await bleInterface.WriteCharacteristicAsync(new ResetMessage()); }
         catch (BleWriteFailedException)
         {
             NavigationStopped?.Invoke(this, EventArgs.Empty);
             return;
         }
-        NavigationStopped?.Invoke(this, EventArgs.Empty);
+        finally
+        { NavigationStopped?.Invoke(this, EventArgs.Empty); }
     }
 
 #if ANDROID31_0_OR_GREATER
@@ -230,7 +235,7 @@ public class NavigationService
 
         MainThread.BeginInvokeOnMainThread(async () =>
         {
-            if (!bleSender.ConnectionState.IsConnected)
+            if (!bleInterface.BleConnectionState.IsConnected)
             {
                 await MauiPopupService.ShowAlertAsync("BLE", "Connection lost.");
                 await StopNavigationAsync();
@@ -277,7 +282,7 @@ public class NavigationService
 
             StateMessage stateMsg = new(navState.RouteState);
             try
-            { await bleSender.WriteCharacteristicAsync(stateMsg); }
+            { await bleInterface.WriteCharacteristicAsync(stateMsg); }
             catch (BleWriteFailedException)
             {
                 await StopNavigationAsync();
@@ -328,7 +333,7 @@ public class NavigationService
 
             DistMessage distMsg = new((uint)remaining);
             try
-            { await bleSender.WriteCharacteristicAsync(distMsg); }
+            { await bleInterface.WriteCharacteristicAsync(distMsg); }
             catch (BleWriteFailedException)
             {
                 await StopNavigationAsync();
@@ -343,7 +348,7 @@ public class NavigationService
                 isStopping = true;
                 NavMessage endMsg = new(Instruction.END, 0, 0);
                 try
-                { await bleSender.WriteCharacteristicAsync(endMsg); }
+                { await bleInterface.WriteCharacteristicAsync(endMsg); }
                 catch (BleWriteFailedException)
                 {
                     await StopNavigationAsync();
@@ -360,7 +365,7 @@ public class NavigationService
 
             NavMessage navMsg = new(nextStep, (uint)distToNextRounded, (byte)exit);
             try
-            { await bleSender.WriteCharacteristicAsync(navMsg); }
+            { await bleInterface.WriteCharacteristicAsync(navMsg); }
             catch (BleWriteFailedException)
             {
                 await StopNavigationAsync();
@@ -389,7 +394,7 @@ public class NavigationService
                 timeToDest = TimeSpan.FromSeconds(eta);
                 EtaMessage etaMsg = new(timeToDest);
                 try
-                { await bleSender.WriteCharacteristicAsync(etaMsg); }
+                { await bleInterface.WriteCharacteristicAsync(etaMsg); }
                 catch (BleWriteFailedException)
                 {
                     await StopNavigationAsync();

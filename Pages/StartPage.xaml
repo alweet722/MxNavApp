@@ -18,23 +18,33 @@
         RowSpacing="25" 
         Padding="30,25,30,25"  
         RowDefinitions="30,50,1,25,450,50,50"
-        ColumnDefinitions="175,175">
+        ColumnDefinitions="200,*">
         <Grid.GestureRecognizers>
             <TapGestureRecognizer Command="{Binding ClearSelectionCommand}"/>
         </Grid.GestureRecognizers>
         <Label
             Grid.Row="0"
-            Grid.ColumnSpan="2"
+            Grid.Column="0"
             FontSize="Medium"
-            Text="My MX-Nav Device"
-            VerticalOptions="Center"/>
+            Text="MX Navigation"
+            VerticalOptions="Center"
+            HorizontalOptions="Start"/>
         <Label
             Grid.Row="0"
             Grid.Column="1"
             FontSize="16" 
-            Text="{Binding ConnectionStatusText}"
+            Text="{Binding ConnectionStateText}"
             VerticalOptions="Center"
-            HorizontalOptions="End"/>
+            HorizontalOptions="Start"/>
+        <Image
+            Grid.Row="0"
+            Grid.Column="2"
+            Source="{Binding ConnectionImage}"
+            HeightRequest="35"
+            WidthRequest="45"
+            VerticalOptions="Center"
+            HorizontalOptions="End">
+        </Image>
         <Border 
             x:Name="MyDeviceRoot"
             Grid.Row="1"

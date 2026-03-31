@@ -5,18 +5,18 @@ namespace NBNavApp.Common.Navigation;
 
 public class NavigationManager
 {
-    readonly BleConnectionState bleState;
+    readonly BleInterface bleInterface;
 
     public bool IsNavigating { get; private set; }
 
-    public NavigationManager(BleConnectionState bleState)
+    public NavigationManager(BleInterface bleInterface)
     {
-        this.bleState = bleState;
+        this.bleInterface = bleInterface;
     }
 
     public async Task StartNavigationAsync()
     {
-        if (!bleState.IsConnected)
+        if (!bleInterface.BleConnectionState.IsConnected)
         { await MauiPopupService.ShowAlertAsync("BLE", "Connection lost."); }
 
         if (IsNavigating)
