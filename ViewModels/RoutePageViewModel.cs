@@ -196,7 +196,6 @@ public partial class RoutePageViewModel : INotifyPropertyChanged
         (double x, double y) defaultCenter = SphericalMercator.FromLonLat(13.723076680216279, 51.05120761645636);
         Map.Navigator.CenterOnAndZoomTo(defaultCenter.ToMPoint(), 10);
 
-        navigationService.Initialize(new NavigationManager(bleInterface));
         navigationService.LocationUpdated += OnLocationUpdated;
         navigationService.NavigationStarted += (s, e) => OnNavigationStarted();
         navigationService.NavigationStopped += (s, e) => OnNavigationStopped();

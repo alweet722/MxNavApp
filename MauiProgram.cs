@@ -37,6 +37,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<NavigationManager>();
         builder.Services.AddSingleton<BleInterface>();
         builder.Services.AddSingleton<NavigationService>();
+        builder.Services.AddSingleton<AppVisibilityService>();
 
 #if DEBUG
         builder.Logging.AddDebug();
