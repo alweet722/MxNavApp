@@ -22,10 +22,9 @@ public class LocationUpdateEventArgs : EventArgs
 public class NavigationService
 {
     readonly BleInterface bleInterface;
+    readonly NavigationManager navigationManager;
     readonly OffRouteDetector offRouteDetector = new();
     readonly WrongWayDetector wrongWayDetector = new();
-
-    NavigationManager? navigationManager;
 
     List<(double lon, double lat)>? route;
     List<(double x, double y)>? routeXY;
@@ -57,19 +56,15 @@ public class NavigationService
     public event EventHandler<EventArgs>? NavigationPaused;
     public event EventHandler<List<(double lon, double lat)>>? RouteUpdated;
 
-    public NavigationService(BleInterface bleInterface)
+    public NavigationService(BleInterface bleInterface, NavigationManager navigationManager)
     {
         this.bleInterface = bleInterface;
+        this.navigationManager = navigationManager;
 
         OffRouteDetector.GoneOffRoute += OnGoneOffRoute;
         OffRouteDetector.ReturnedOnRoute += OnReturnedOnRoute;
         WrongWayDetector.GoingWrongWay += OnGoingWrongWay;
         WrongWayDetector.Turned += OnTurned;
-    }
-
-    public void Initialize(NavigationManager navigationManager)
-    {
-        this.navigationManager = navigationManager;
     }
 
     public void SetRoute(
@@ -197,14 +192,6 @@ public class NavigationService
 
 #if ANDROID31_0_OR_GREATER
         LocationBus.LocationUpdated -= OnLocationUpdated;
-        var context = GetAndroidContext();
-        if (context == null)
-        { return; }
-
-        var stopIntent = new Intent(context, typeof(LocationForegroundService));
-        stopIntent.SetAction("STOP_LOCATION");
-        context.StartService(stopIntent);
-
 #endif
 
         if (!bleInterface.BleConnectionState.IsConnected)
@@ -247,10 +234,10 @@ public class NavigationService
             bool reroute = false;
             DateTime now = DateTime.UtcNow;
 
-            var currentCartesianLoc = Mapsui.Projections.SphericalMercator.FromLonLat(location.Longitude, location.Latitude);
+            var (x, y) = Mapsui.Projections.SphericalMercator.FromLonLat(location.Longitude, location.Latitude);
 
             var (s, dPerp) = RouteNavigation.MatchRouteToNextStep(
-                (currentCartesianLoc.x, currentCartesianLoc.y),
+                (x, y),
                 routeXY,
                 totalDist,
                 segLen,
@@ -311,7 +298,7 @@ public class NavigationService
                             avoidFeatures?.ToArray() ?? []);
 
                         (s, dPerp) = RouteNavigation.MatchRouteToNextStep(
-                            (currentCartesianLoc.x, currentCartesianLoc.y),
+                            (x, y),
                             routeXY,
                             totalDist,
                             segLen,

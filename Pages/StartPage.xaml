@@ -18,7 +18,7 @@
         RowSpacing="25" 
         Padding="30,25,30,25"  
         RowDefinitions="30,50,1,25,450,50,50"
-        ColumnDefinitions="200,*">
+        ColumnDefinitions="175,*">
         <Grid.GestureRecognizers>
             <TapGestureRecognizer Command="{Binding ClearSelectionCommand}"/>
         </Grid.GestureRecognizers>
@@ -184,7 +184,6 @@
             Grid.Column="1"
             Text="Route"
             Command="{Binding GoToRouteCommand}"
-            IsEnabled="{Binding CanGoNext}"
             WidthRequest="120" 
             HorizontalOptions="End"/>
     </Grid>

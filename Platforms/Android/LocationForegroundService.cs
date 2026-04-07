@@ -33,7 +33,7 @@ public class LocationForegroundService : Service
         return new NotificationCompat.Builder(this, CHANNEL_ID)
             .SetContentTitle("NB Navigation")
             .SetContentText(text)
-            .SetSmallIcon(Android.Resource.Drawable.IcMenuCompass)
+            .SetSmallIcon(Resource.Drawable.ic_mx)
             .SetOngoing(true)
             .SetContentIntent(pending)
             .Build();
