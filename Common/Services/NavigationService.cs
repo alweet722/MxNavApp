@@ -264,8 +264,9 @@ public class NavigationService
                 wrongWayReroute = wrongWayDetector.UpdateReroute(now);
             }
 
-            if (!wrongWay)
-            { reroute = offRouteDetector.Update(dPerp, location.Accuracy, location.Speed, now); }
+            reroute = offRouteDetector.Update(dPerp, location.Accuracy, location.Speed, now);
+            if (wrongWay || wrongWayReroute)
+            { reroute = false; }
 
             StateMessage stateMsg = new(navState.RouteState);
             try
@@ -437,21 +438,25 @@ public class NavigationService
 
     private void OnGoneOffRoute(object? sender, EventArgs e)
     {
-        navState?.RouteState = RouteState.OFF_ROUTE;
+        if (navState?.RouteState == RouteState.NORMAL)
+        { navState.RouteState = RouteState.OFF_ROUTE; }
     }
 
     private void OnReturnedOnRoute(object? sender, EventArgs e)
     {
-        navState?.RouteState = RouteState.NORMAL;
+        if (navState?.RouteState == RouteState.OFF_ROUTE)
+        { navState.RouteState = RouteState.NORMAL; }
     }
 
     private void OnGoingWrongWay(object? sender, EventArgs e)
     {
-        navState?.RouteState = RouteState.WRONG_WAY;
+        if (navState?.RouteState == RouteState.NORMAL)
+        { navState.RouteState = RouteState.WRONG_WAY; }
     }
 
     private void OnTurned(object? sender, EventArgs e)
     {
-        navState?.RouteState = RouteState.NORMAL;
+        if (navState?.RouteState == RouteState.WRONG_WAY)
+        { navState.RouteState = RouteState.NORMAL; }
     }
 }
