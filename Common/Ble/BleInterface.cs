@@ -13,6 +13,12 @@ public class BleInterface
 
     readonly BleStateMonitor bleStateMonitor;
 
+    const int writeRetryCount = 3;
+    const int connectionRetryCount = 3;
+    const int connectionTimeoutSeconds = 5;
+
+    int writeAttempt = 0;
+
     public IBleManager BleManager { get; set; }
     public IPeripheral? ConnectedDevice { get; set; }
     public BleConnectionState BleConnectionState { get; set; }
@@ -79,17 +85,40 @@ public class BleInterface
 
         ConnectedDevice?.CancelConnection();
 
-        using CancellationTokenSource cts = new(TimeSpan.FromSeconds(15));
-        try
-        { await peripheral.ConnectAsync(null, cts.Token); }
-        catch (TaskCanceledException)
+        for (int attempt = 1; attempt <= connectionRetryCount + 1; ++attempt)
         {
-            await MauiPopupService.ShowAlertAsync("BLE", "Connection timed out.");
-            return false;
+            using CancellationTokenSource cts = new(TimeSpan.FromSeconds(connectionTimeoutSeconds));
+            try
+            {
+                await peripheral.ConnectAsync(null, cts.Token);
+                break;
+            }
+            catch (TaskCanceledException)
+            {
+                if (attempt > connectionRetryCount)
+                {
+                    await MauiPopupService.ShowAlertAsync("BLE", $"Connection timed out after {connectionRetryCount} retries.");
+                    return false;
+                }
+                await Task.Delay(500 * attempt);
+            }
+            catch (Exception ex)
+            {
+                if (attempt > connectionRetryCount)
+                {
+                    await MauiPopupService.ShowAlertAsync("BLE", $"Connection failed: {ex.Message}");
+                    return false;
+                }
+                await Task.Delay(500 * attempt);
+            }
         }
 
+        using CancellationTokenSource charCts = new(TimeSpan.FromSeconds(connectionTimeoutSeconds));
         try
-        { navChar = await peripheral.GetCharacteristicAsync(Constants.SERVICE_UUID, Constants.NAV_UUID, cts.Token); }
+        {
+            navChar = await peripheral.GetCharacteristicAsync(Constants.SERVICE_UUID, Constants.NAV_UUID, charCts.Token);
+            return BleConnectionState.IsConnected;
+        }
         catch (TaskCanceledException)
         {
             peripheral.CancelConnection();
@@ -99,32 +128,47 @@ public class BleInterface
         catch (Exception ex)
         {
             peripheral.CancelConnection();
-            await MauiPopupService.ShowAlertAsync("BLE", $"{ex.Message}");
+            await MauiPopupService.ShowAlertAsync("BLE", $"Failed to get characteristic: {ex.Message}");
+            return false;
         }
-        return BleConnectionState.IsConnected;
     }
 
     public async Task WriteCharacteristicAsync(BleMessage message)
     {
-        CancellationTokenSource cts = new(TimeSpan.FromSeconds(3));
-
         if (ConnectedDevice == null)
         { throw new BleWriteFailedException("Device not connected"); }
 
         if (navChar == null)
         { throw new BleWriteFailedException("Navigation characteristic not found"); }
 
+        using CancellationTokenSource cts = new(TimeSpan.FromSeconds(3));
         try
-        { await ConnectedDevice.WriteCharacteristicAsync(navChar, message.Data, false, cts.Token); }
+        {
+            ++writeAttempt;
+            await ConnectedDevice.WriteCharacteristicAsync(navChar, message.Data, false, cts.Token);
+            writeAttempt = 0;
+            return;
+        }
         catch (TaskCanceledException)
         {
-            await MauiPopupService.ShowAlertAsync("BLE", "Write operation timed out.");
-            throw new BleWriteFailedException("Write operation timed out");
+            if (writeAttempt > writeRetryCount)
+            {
+                await MauiPopupService.ShowAlertAsync("BLE", "Write operation timed out.");
+                throw new BleWriteFailedException($"Write operation timed out after {writeRetryCount} retries");
+            }
+            await Task.Delay(100 * writeAttempt);
         }
         catch (InvalidOperationException ex)
         {
             await MauiPopupService.ShowAlertAsync("BLE", "Connection lost.");
             throw new BleWriteFailedException("BLE connection lost", ex);
+        }
+        catch (Exception ex)
+        {
+            if (writeAttempt > writeRetryCount)
+            { throw new BleWriteFailedException($"Write failed after {writeRetryCount} attempts: {ex.Message}", ex); }
+
+            await Task.Delay(100 * writeAttempt);
         }
     }
 
@@ -133,6 +177,7 @@ public class BleInterface
         ConnectedDevice?.CancelConnection();
         scanSub?.Dispose();
         scanSub = null;
+        navChar = null;
     }
 }
 
